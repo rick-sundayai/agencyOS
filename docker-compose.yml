@@ -1,0 +1,13 @@
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: agency
+      POSTGRES_PASSWORD: agency
+      POSTGRES_DB: agency
+    ports:
+      - "5433:5432"
+    volumes:
+      - agency_pgdata:/var/lib/postgresql/data
+volumes:
+  agency_pgdata:
