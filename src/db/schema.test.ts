@@ -46,3 +46,16 @@ describe('crm + ats schema', () => {
     expect(rows.length).toBe(1);
   });
 });
+
+describe('agentic schema', () => {
+  it.each([
+    ['decisions', ['id', 'org_id', 'agent', 'action_class', 'tier', 'state', 'reasoning', 'payload', 'undo_expires_at', 'approved_by', 'cancelled_by', 'cancelled_at', 'error', 'outcome', 'proposed_at', 'decided_at', 'executed_at']],
+    ['autonomy_policy', ['id', 'org_id', 'action_class', 'tier', 'undo_minutes']],
+    ['conversations', ['id', 'org_id', 'candidate_id', 'client_contact_id', 'channel']],
+    ['messages', ['id', 'org_id', 'conversation_id', 'direction', 'body', 'decision_id', 'sent_at']],
+    ['consents', ['id', 'org_id', 'candidate_id', 'channel', 'status']],
+    ['agent_runs', ['id', 'org_id', 'agent', 'workflow', 'model', 'prompt_version', 'tokens_in', 'tokens_out', 'status', 'started_at', 'finished_at', 'decision_id']],
+  ])('%s has expected columns', async (table, cols) => {
+    expect(await tableColumns(table)).toEqual(expect.arrayContaining(cols));
+  });
+});
