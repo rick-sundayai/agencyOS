@@ -28,5 +28,9 @@ export async function GET(req: Request): Promise<Response> {
   if (denied) return denied;
   const orgId = new URL(req.url).searchParams.get('org_id');
   if (!orgId) return Response.json({ error: 'org_id required' }, { status: 400 });
-  return Response.json({ queue: await listQueue(orgId) });
+  try {
+    return Response.json({ queue: await listQueue(orgId) });
+  } catch {
+    return Response.json({ error: 'internal_error' }, { status: 500 });
+  }
 }

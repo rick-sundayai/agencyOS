@@ -58,4 +58,11 @@ describe('GET /api/agent/decisions', () => {
     const json = await res.json();
     expect(Array.isArray(json.queue)).toBe(true);
   });
+
+  it('returns 500 on an unexpected error, e.g. a malformed org_id', async () => {
+    const res = await GET(new Request('http://test/api/agent/decisions?org_id=not-a-uuid', {
+      headers: { 'x-agent-api-key': KEY },
+    }));
+    expect(res.status).toBe(500);
+  });
 });
