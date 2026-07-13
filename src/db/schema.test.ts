@@ -59,3 +59,26 @@ describe('agentic schema', () => {
     expect(await tableColumns(table)).toEqual(expect.arrayContaining(cols));
   });
 });
+
+describe('intelligence schema', () => {
+  it('embeddings uses halfvec(3072)', async () => {
+    const rows = await sql`
+      select format_type(a.atttypid, a.atttypmod) as type
+      from pg_attribute a join pg_class c on a.attrelid = c.oid
+      where c.relname = 'embeddings' and a.attname = 'embedding'`;
+    expect(rows[0].type).toBe('halfvec(3072)');
+  });
+
+  it('embeddings has an hnsw index', async () => {
+    const rows = await sql`
+      select 1 from pg_indexes where tablename = 'embeddings' and indexdef ilike '%hnsw%'`;
+    expect(rows.length).toBe(1);
+  });
+
+  it.each([
+    ['scores', ['id', 'org_id', 'job_order_id', 'candidate_id', 'prompt_version', 'model', 'fit_rating', 'weighted_score', 'criteria']],
+    ['system_prompts', ['id', 'org_id', 'agent', 'name', 'version', 'body', 'active']],
+  ])('%s has expected columns', async (table, cols) => {
+    expect(await tableColumns(table)).toEqual(expect.arrayContaining(cols));
+  });
+});
