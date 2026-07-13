@@ -15,6 +15,13 @@
       "when": 1783959765745,
       "tag": "0001_core",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783960273042,
+      "tag": "0002_crm-ats",
+      "breakpoints": true
     }
   ]
 }

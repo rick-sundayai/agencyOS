@@ -23,3 +23,26 @@ describe('core schema', () => {
     );
   });
 });
+
+describe('crm + ats schema', () => {
+  it.each([
+    ['clients', ['id', 'org_id', 'name', 'status']],
+    ['client_contacts', ['id', 'org_id', 'client_id', 'full_name', 'email']],
+    ['prospects', ['id', 'org_id', 'company_name', 'signal', 'status']],
+    ['job_orders', ['id', 'org_id', 'client_id', 'title', 'must_haves', 'nice_to_haves', 'kind', 'status']],
+    ['candidates', ['id', 'org_id', 'full_name', 'email', 'phone', 'current_title', 'source']],
+    ['candidate_documents', ['id', 'org_id', 'candidate_id', 'kind', 'storage_key', 'parsed_text', 'version']],
+    ['applications', ['id', 'org_id', 'job_order_id', 'candidate_id', 'stage']],
+    ['placements', ['id', 'org_id', 'application_id', 'kind', 'start_date', 'bill_rate', 'pay_rate', 'fee_amount']],
+    ['timesheets', ['id', 'org_id', 'placement_id', 'week_ending', 'status']],
+  ])('%s has expected columns', async (table, cols) => {
+    expect(await tableColumns(table)).toEqual(expect.arrayContaining(cols));
+  });
+
+  it('applications is unique per job_order + candidate', async () => {
+    const rows = await sql`
+      select 1 from pg_indexes
+      where tablename = 'applications' and indexdef ilike '%unique%job_order_id%candidate_id%'`;
+    expect(rows.length).toBe(1);
+  });
+});
