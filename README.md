@@ -1,36 +1,26 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AgencyOS
 
-## Getting Started
+Greenfield agentic recruiting agency platform. Spec:
+`Agentic_Recruiting/01-architecture/agentic-agency-greenfield-design_2026-07-09.md`.
 
-First, run the development server:
+Agents (n8n) propose decisions → decision store (Postgres) → cockpit approves per
+autonomy tier → capability agents execute. Agents never act directly.
+
+## Local setup
 
 ```bash
+docker compose up -d      # Postgres 17 + pgvector on :5433
+cp .env.example .env.local  # or create with DATABASE_URL + AGENT_API_KEY
+npm install
+npm run db:migrate
+npm run db:seed           # default org + autonomy policy defaults
+npm test
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Key paths
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `src/contracts/` — the Decision Zod contract + state machine (source of truth)
+- `src/db/schema/` — core / crm / ats / agentic / intelligence clusters
+- `src/services/decision-store.ts` — propose (policy-driven), transition, queue
+- `src/app/api/agent/decisions/` — n8n's single write path (`x-agent-api-key`)
