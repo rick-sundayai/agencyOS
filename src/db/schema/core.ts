@@ -12,6 +12,7 @@ export const users = pgTable('users', {
   org_id: uuid('org_id').notNull().references(() => orgs.id),
   email: text('email').notNull().unique(),
   full_name: text('full_name'),
+  password_hash: text('password_hash'),
   role: text('role').notNull().default('recruiter'),
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });

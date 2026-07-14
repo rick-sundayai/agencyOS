@@ -1,4 +1,4 @@
-const KEYS = ['DATABASE_URL', 'AGENT_API_KEY'] as const;
+const KEYS = ['DATABASE_URL', 'AGENT_API_KEY', 'AUTH_SECRET'] as const;
 export type EnvKey = (typeof KEYS)[number];
 
 export function getEnv(key: EnvKey): string {

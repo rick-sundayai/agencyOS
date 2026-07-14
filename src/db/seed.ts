@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import postgres from 'postgres';
+import bcrypt from 'bcryptjs';
 import { ACTION_CLASSES } from '../contracts/decision';
 import { getEnv } from '../lib/env';
 
@@ -16,6 +17,12 @@ async function seed() {
       values (${orgId}, ${actionClass}, ${tier})
       on conflict (org_id, action_class) do nothing`;
   }
+
+  const passwordHash = bcrypt.hashSync('change-me-locally', 10);
+  await sql`
+    insert into users (org_id, email, full_name, role, password_hash)
+    values (${orgId}, 'rick@sundayaiwork.com', 'Rick', 'admin', ${passwordHash})
+    on conflict (email) do nothing`;
 
   const [{ count }] = await sql`select count(*)::int as count from autonomy_policy where org_id = ${orgId}`;
   console.log(`Seeded org ${orgId} with ${count} policy rows`);

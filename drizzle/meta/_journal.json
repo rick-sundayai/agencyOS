@@ -43,6 +43,13 @@
       "when": 1783968610498,
       "tag": "0005_embeddings-hnsw",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784043034492,
+      "tag": "0006_users-password",
+      "breakpoints": true
     }
   ]
 }
