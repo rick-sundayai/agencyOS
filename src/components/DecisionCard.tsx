@@ -35,6 +35,7 @@ export function DecisionCard({
   onResolved?: (id: string) => void;
 }) {
   const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   const remaining = useCountdownMs(decision.undo_expires_at);
 
   const reasoning = decision.reasoning as {
@@ -48,8 +49,16 @@ export function DecisionCard({
 
   const act = (action: (id: string) => Promise<unknown>) =>
     startTransition(async () => {
-      await action(decision.id);
-      onResolved?.(decision.id);
+      setError(null);
+      try {
+        await action(decision.id);
+        onResolved?.(decision.id);
+      } catch (err) {
+        // Server actions (approveDecisionAction/cancelDecisionAction) throw friendly,
+        // human-facing messages (e.g. a stale-transition race or a role/tier mismatch) —
+        // surface them here instead of letting them bubble up and crash the whole page.
+        setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+      }
     });
 
   return (
@@ -94,6 +103,7 @@ export function DecisionCard({
           </button>
         )}
       </footer>
+      {error && <p className="error">{error}</p>}
     </article>
   );
 }

@@ -69,4 +69,30 @@ describe('DecisionCard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
     await waitFor(() => expect(cancelDecisionAction).toHaveBeenCalledWith('d-1'));
   });
+
+  it('shows the server action error instead of crashing when approve is rejected', async () => {
+    vi.mocked(approveDecisionAction).mockRejectedValueOnce(
+      new Error('This decision was already handled — refresh the queue.'),
+    );
+    render(<DecisionCard decision={base} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    await waitFor(() =>
+      expect(screen.getByText('This decision was already handled — refresh the queue.')).toBeDefined(),
+    );
+  });
+
+  it('clears a stale error once a retry succeeds', async () => {
+    vi.mocked(approveDecisionAction).mockRejectedValueOnce(
+      new Error('Forbidden — your role cannot act on this tier.'),
+    );
+    render(<DecisionCard decision={base} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    await waitFor(() =>
+      expect(screen.getByText('Forbidden — your role cannot act on this tier.')).toBeDefined(),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    await waitFor(() =>
+      expect(screen.queryByText('Forbidden — your role cannot act on this tier.')).toBeNull(),
+    );
+  });
 });
