@@ -85,3 +85,8 @@ table.list th, table.list td { text-align: left; padding: 8px 12px; border-botto
 .board .col .card { margin-bottom: 8px; padding: 10px; }
 .tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .tags span { background: #eef2ff; border-radius: 4px; padding: 2px 8px; font-size: 12px; }
+
+/* --- cockpit: nav --- */
+.topnav { display: flex; gap: 16px; align-items: center; padding: 12px 24px; border-bottom: 1px solid #eee; }
+.topnav a { text-decoration: none; color: inherit; font-weight: 500; }
+.topnav form { margin-left: auto; }
