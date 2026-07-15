@@ -42,6 +42,6 @@ Phase 1a plan's estimates as implementation decisions were made along the way (s
 - `/clients` — client list with open-job counts.
 
 Auth: next-auth credentials. Dev login is seeded by `npm run db:seed`
-(`rick@sundayaiwork.com` / `change-me-locally` — change in production).
+(see `src/db/seed.ts` for the dev credentials — change in production).
 `AUTH_SECRET` is required in `.env.local` (`openssl rand -base64 32`).
 The agent API (`/api/agent/*`) is API-key authed and bypasses session middleware.
