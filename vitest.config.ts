@@ -1,9 +1,12 @@
 import { defineConfig } from 'vitest/config';
+import react from '@vitejs/plugin-react';
 
 export default defineConfig({
+  plugins: [react()],
   test: {
-    environment: 'node',
-    include: ['src/**/*.test.ts'],
+    environment: 'node', // DB/API tests stay in node; component tests opt into jsdom per-file
+    globals: true, // required for @testing-library/react's automatic afterEach(cleanup)
+    include: ['src/**/*.test.{ts,tsx}'],
     setupFiles: ['dotenv/config'],
     env: { DOTENV_CONFIG_PATH: '.env.local' },
   },
