@@ -35,6 +35,17 @@ describe('getJobOrderPipeline', () => {
     expect(b.score).toBeNull();
   });
 
+  it('picks the newest score for a candidate with multiple scores, not an arbitrary one', async () => {
+    // cand1 has two scores in the fixtures: an older one backdated 2 days
+    // (fit_rating 'no', weighted_score 0.12) and the current one (fit_rating 'yes',
+    // weighted_score 0.87). If the sort/dedup direction were ever reversed, this
+    // would return the older 'no'/0.12 score instead.
+    const job = await getJobOrderPipeline(f.orgId, f.jobId);
+    const a = job!.applications.find((x) => x.candidate_id === f.cand1)!;
+    expect(a.score?.fit_rating).toBe('yes');
+    expect(Number(a.score?.weighted_score)).toBeCloseTo(0.87);
+  });
+
   it('returns null for another org (isolation)', async () => {
     expect(await getJobOrderPipeline(OTHER_ORG, f.jobId)).toBeNull();
   });

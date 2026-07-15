@@ -32,6 +32,11 @@ export async function makeAtsFixtures(): Promise<AtsFixtures> {
   await sql`
     insert into applications (org_id, job_order_id, candidate_id, stage)
     values (${orgId}, ${job.id}, ${cand2.id}, 'screened')`;
+  // Older score for cand1, explicitly backdated — proves getJobOrderPipeline picks the
+  // latest score by created_at rather than an arbitrary/first-inserted one.
+  await sql`
+    insert into scores (org_id, job_order_id, candidate_id, prompt_version, model, fit_rating, weighted_score, created_at)
+    values (${orgId}, ${job.id}, ${cand1.id}, 'v2.1.0', 'gemini-2.5-flash', 'no', 0.12, now() - interval '2 days')`;
   await sql`
     insert into scores (org_id, job_order_id, candidate_id, prompt_version, model, fit_rating, weighted_score)
     values (${orgId}, ${job.id}, ${cand1.id}, 'v2.2.0', 'gemini-2.5-flash', 'yes', 0.87)`;
