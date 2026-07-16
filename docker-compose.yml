@@ -9,5 +9,30 @@ services:
       - "5433:5432"
     volumes:
       - agency_pgdata:/var/lib/postgresql/data
+  n8n:
+    # Pinned via `docker run --rm n8nio/n8n:latest n8n --version` at build time (Task 7).
+    image: n8nio/n8n:2.6.4
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_ENCRYPTION_KEY=dev-encryption-key-change-me
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+      - NODE_FUNCTION_ALLOW_BUILTIN=crypto
+      - GENERIC_TIMEZONE=America/New_York
+      - AGENCY_API_URL=http://host.docker.internal:3000
+      - AGENT_API_KEY=${AGENT_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - MAIL_API_URL=http://mailpit:8025/api/v1/send
+      - MAIL_FROM=recruiting@sundayaiwork.dev
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/dist:/workflows:ro
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"
 volumes:
   agency_pgdata:
+  n8n_data:

@@ -43,3 +43,6 @@ next-env.d.ts
 
 # worktrees
 .worktrees/
+
+# n8n build output
+n8n/dist/
