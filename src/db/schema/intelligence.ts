@@ -13,7 +13,7 @@ const halfvec = customType<{ data: number[]; driverData: string }>({
 export const embeddings = pgTable('embeddings', {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
   org_id: uuid('org_id').notNull().references(() => orgs.id),
-  subject_type: text('subject_type').notNull(), // 'candidate_chunk' | 'job_order'
+  subject_type: text('subject_type').notNull(), // 'candidate_document' | 'job_order'
   subject_id: uuid('subject_id').notNull(),
   chunk_index: integer('chunk_index').notNull().default(0),
   content: text('content').notNull(),
