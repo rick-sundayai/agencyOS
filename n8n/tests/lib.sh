@@ -2,7 +2,17 @@
 # Shared helpers for n8n golden-path tests. Source from each test script.
 API=http://localhost:3000
 KEY=dev-agent-key-change-me
-PSQL="docker compose exec -T db psql -U agency -tA -c"
+
+# This worktree's own compose project doesn't run a "db" service (it would collide on host
+# port 5433 with whichever sibling worktree/checkout already owns the shared dev Postgres —
+# same DATABASE_URL everywhere, so same data). Prefer this project's own "db" container if it
+# happens to be up; otherwise fall back to whatever container currently publishes port 5433.
+if [ -n "$(docker compose ps db --status running -q 2>/dev/null)" ]; then
+  PSQL="docker compose exec -T db psql -U agency -tA -c"
+else
+  DB_CONTAINER=$(docker ps --filter "publish=5433" --format '{{.Names}}' | head -1)
+  PSQL="docker exec -i ${DB_CONTAINER:-db} psql -U agency -tA -c"
+fi
 
 api_get()  { curl -s -H "x-agent-api-key: $KEY" "$API$1"; }
 api_post() { curl -s -X POST -H "x-agent-api-key: $KEY" -H 'content-type: application/json' -d "$2" "$API$1"; }
