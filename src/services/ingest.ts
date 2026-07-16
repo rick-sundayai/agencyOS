@@ -50,7 +50,7 @@ export async function ingestCandidate(input: unknown): Promise<{
         phone: existing.phone ?? p.phone,
         current_title: p.current_title ?? existing.current_title,
         location: p.location ?? existing.location,
-        source: existing.source ?? p.source,
+        source: p.source ?? existing.source,
       }).where(eq(candidates.id, existing.id));
     } else {
       const [row] = await tx.insert(candidates).values({
@@ -93,15 +93,17 @@ export const EmbeddingsUpsertSchema = z.strictObject({
 
 export async function upsertEmbeddings(input: unknown): Promise<{ inserted: number }> {
   const p = EmbeddingsUpsertSchema.parse(input);
-  await db.delete(embeddings).where(and(
-    eq(embeddings.org_id, p.org_id),
-    eq(embeddings.subject_type, p.subject_type),
-    eq(embeddings.subject_id, p.subject_id),
-  ));
-  await db.insert(embeddings).values(p.chunks.map((c) => ({
-    org_id: p.org_id, subject_type: p.subject_type, subject_id: p.subject_id,
-    chunk_index: c.chunk_index, content: c.content,
-    embedding: c.embedding, content_hash: c.content_hash,
-  })));
-  return { inserted: p.chunks.length };
+  return db.transaction(async (tx) => {
+    await tx.delete(embeddings).where(and(
+      eq(embeddings.org_id, p.org_id),
+      eq(embeddings.subject_type, p.subject_type),
+      eq(embeddings.subject_id, p.subject_id),
+    ));
+    await tx.insert(embeddings).values(p.chunks.map((c) => ({
+      org_id: p.org_id, subject_type: p.subject_type, subject_id: p.subject_id,
+      chunk_index: c.chunk_index, content: c.content,
+      embedding: c.embedding, content_hash: c.content_hash,
+    })));
+    return { inserted: p.chunks.length };
+  });
 }
