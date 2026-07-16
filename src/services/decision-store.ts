@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, or } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, isNull, like, lte, or } from 'drizzle-orm';
 import { db } from '../db/client';
 import { decisions, autonomy_policy } from '../db/schema';
 import { DecisionProposalSchema, ACTION_CLASSES, MONEY_ACTION_CLASSES, type ActionClass, type DecisionState } from '../contracts/decision';
@@ -45,7 +45,10 @@ export async function proposeDecision(input: unknown): Promise<DecisionRow> {
 }
 
 export async function transitionDecision(
-  id: string, to: DecisionState, actor: string,
+  id: string,
+  to: DecisionState,
+  actor: string,
+  extras: { error?: string | null; outcome?: unknown } = {},
 ): Promise<DecisionRow> {
   const [current] = await db.select().from(decisions).where(eq(decisions.id, id));
   if (!current) throw new Error(`Decision not found: ${id}`);
@@ -61,7 +64,11 @@ export async function transitionDecision(
     // overwrite the original policy/human approval timestamp (ADR-0002).
     if (!current.decided_at) patch.decided_at = new Date();
   }
-  if (to === 'executed') { patch.executed_at = new Date(); }
+  if (to === 'failed') { patch.error = extras.error ?? null; }
+  if (to === 'executed') {
+    patch.executed_at = new Date();
+    if (extras.outcome !== undefined) patch.outcome = extras.outcome;
+  }
 
   // Compare-and-swap on state: guards against a concurrent transition (e.g. Plan 1c's
   // executor and a human Undo click racing on the same row) silently overwriting each
@@ -91,4 +98,17 @@ export async function listQueue(orgId: string): Promise<DecisionRow[]> {
       ),
     ))
     .orderBy(desc(decisions.proposed_at));
+}
+
+/** Approved decisions whose undo window is absent or expired — ready for a capability agent. */
+export async function listExecutable(
+  opts: { orgId?: string; actionPrefix?: string } = {},
+): Promise<DecisionRow[]> {
+  const conds = [
+    eq(decisions.state, 'approved'),
+    or(isNull(decisions.undo_expires_at), lte(decisions.undo_expires_at, new Date())),
+  ];
+  if (opts.orgId) conds.push(eq(decisions.org_id, opts.orgId));
+  if (opts.actionPrefix) conds.push(like(decisions.action_class, `${opts.actionPrefix}%`));
+  return db.select().from(decisions).where(and(...conds)).orderBy(asc(decisions.proposed_at));
 }
