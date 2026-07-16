@@ -32,6 +32,10 @@ describe('searchCandidatesByEmbedding', () => {
     expect(nearHit).toBeDefined();
     expect(nearHit!.distance).toBeLessThan(0.01);
     if (farHit) expect(farHit.distance).toBeGreaterThan(0.9);
+    if (farHit) {
+      expect(results.findIndex((r) => r.candidate_id === near.candidate_id))
+        .toBeLessThan(results.findIndex((r) => r.candidate_id === far.candidate_id));
+    }
   });
 });
 
