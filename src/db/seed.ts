@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { readFileSync } from 'node:fs';
 import postgres from 'postgres';
 import bcrypt from 'bcryptjs';
 import { ACTION_CLASSES } from '../contracts/decision';
@@ -23,6 +24,18 @@ async function seed() {
     insert into users (org_id, email, full_name, role, password_hash)
     values (${orgId}, 'rick@sundayaiwork.com', 'Rick', 'admin', ${passwordHash})
     on conflict (email) do nothing`;
+
+  const snapshot = JSON.parse(
+    readFileSync('n8n/prompts/scorer-prompts-snapshot_2026-07-09.json', 'utf8'),
+  ) as { prompts: Array<{ id: string; prompt: { system: string; user_template: string } }> };
+  for (const p of snapshot.prompts) {
+    const version = p.id.replace('score-', ''); // 'v2.2.0' | 'v2.3.0'
+    await sql`
+      insert into system_prompts (org_id, agent, name, version, body, active)
+      values (${orgId}, 'screening', 'resume-scorer', ${version},
+              ${JSON.stringify(p.prompt)}, ${version === 'v2.2.0'})
+      on conflict (org_id, agent, name, version) do nothing`;
+  }
 
   const [{ count }] = await sql`select count(*)::int as count from autonomy_policy where org_id = ${orgId}`;
   console.log(`Seeded org ${orgId} with ${count} policy rows`);
