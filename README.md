@@ -45,3 +45,16 @@ Auth: next-auth credentials. Dev login is seeded by `npm run db:seed`
 (see `src/db/seed.ts` for the dev credentials — change in production).
 `AUTH_SECRET` is required in `.env.local` (`openssl rand -base64 32`).
 The agent API (`/api/agent/*`) is API-key authed and bypasses session middleware.
+
+## Agent runtime (Phase 1c)
+
+n8n (http://localhost:5678) + Mailpit (http://localhost:8025), via `docker compose up -d`.
+Workflows are code: `n8n/workflows/src/*.workflow.mjs` → `bash n8n/apply.sh` (build, import, restart).
+
+Agents: orchestrator (`/webhook/signal`), data-steward (`/webhook/ingest-candidate`),
+sourcing (`/webhook/source`), screening (`/webhook/screen`), communication (1-min schedule).
+All world access goes through `/api/agent/*` with `x-agent-api-key` — n8n has no DB access.
+Scorer: calibrated v2.2.0 + C01-hard-gate-v2 (`n8n/lib/parse-score-output.js`, prompts seeded
+from `n8n/prompts/`). Compliance gate: consent deny, quiet-hours/frequency defer.
+
+Golden tests (need `npm run dev` + `GEMINI_API_KEY`): `bash n8n/tests/e2e-golden-path.sh`.
