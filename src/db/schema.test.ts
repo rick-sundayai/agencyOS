@@ -82,3 +82,19 @@ describe('intelligence schema', () => {
     expect(await tableColumns(table)).toEqual(expect.arrayContaining(cols));
   });
 });
+
+describe('migration schema (1d)', () => {
+  it.each([['candidates'], ['job_orders'], ['clients']])('%s has jobdiva_id with a partial unique index', async (table) => {
+    expect(await tableColumns(table)).toEqual(expect.arrayContaining(['jobdiva_id']));
+    const idx = await sql`
+      select 1 from pg_indexes where tablename = ${table}
+      and indexdef ilike '%unique%' and indexdef ilike '%jobdiva_id%' and indexdef ilike '%where%'`;
+    expect(idx.length).toBe(1);
+  });
+
+  it('migration_checkpoints exists with watermark', async () => {
+    expect(await tableColumns('migration_checkpoints')).toEqual(
+      expect.arrayContaining(['id', 'org_id', 'source', 'watermark', 'updated_at']),
+    );
+  });
+});

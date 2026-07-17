@@ -50,6 +50,20 @@
       "when": 1784043034492,
       "tag": "0006_users-password",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784295294180,
+      "tag": "0007_jobdiva-ids",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784295296888,
+      "tag": "0008_jobdiva-unique",
+      "breakpoints": true
     }
   ]
 }

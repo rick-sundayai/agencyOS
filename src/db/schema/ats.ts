@@ -16,6 +16,7 @@ export const job_orders = pgTable('job_orders', {
   kind: text('kind').notNull(), // 'contract' | 'direct_hire'
   status: text('status').notNull().default('open'),
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  jobdiva_id: text('jobdiva_id'),
 });
 
 export const candidates = pgTable('candidates', {
@@ -28,6 +29,7 @@ export const candidates = pgTable('candidates', {
   location: text('location'),
   source: text('source'),
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  jobdiva_id: text('jobdiva_id'),
 });
 
 export const candidate_documents = pgTable('candidate_documents', {

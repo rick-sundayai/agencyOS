@@ -8,6 +8,7 @@ export const clients = pgTable('clients', {
   name: text('name').notNull(),
   status: text('status').notNull().default('active'),
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  jobdiva_id: text('jobdiva_id'),
 });
 
 export const client_contacts = pgTable('client_contacts', {
