@@ -15,6 +15,7 @@ Order of operations. Each step is safe to repeat — the import is idempotent
    (Adjust `--since` to when the agency's JobDiva history starts.)
 5. **Embedding backfill** — `DATABASE_URL=<rds> GEMINI_API_KEY=<key> npx tsx scripts/migration/backfill-embeddings.ts`
 6. **Reconcile** — `DATABASE_URL=<rds> npx tsx scripts/migration/report.ts`; compare counts to JobDiva.
+   Note: if Step 4's console output showed a non-zero `skipped` count, those records failed and the checkpoint has already moved past them — reconcile will show them as gaps. Re-run the import with `--since`/`--until` covering just those ids to retry.
 7. **Cutover** — when counts reconcile: stop creating/editing records in JobDiva; record
    "JobDiva read-only as of <date>" in `Agentic_Recruiting/Project_State.md`. JobDiva stays
    available read-only for reference; nothing syncs in either direction after this point.

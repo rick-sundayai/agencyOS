@@ -49,3 +49,6 @@ n8n/dist/
 
 # migration fixtures (real PII, never commit)
 scripts/migration/fixtures/
+
+# migration reports (contain real candidate PII — names + JobDiva IDs)
+docs/migration-report_*.md
