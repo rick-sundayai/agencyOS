@@ -1,0 +1,170 @@
+/* ============================================================
+   AgencyOS — Control Room design tokens
+   Ported from RecruiterPro's "operations room" system (app.css).
+   Light is the reference (ADR 0002); dark is authored net-new below.
+   Fonts (--font-display / --font-body / --font-mono) are provided by
+   next/font in the root layout, not declared here.
+   ============================================================ */
+
+:root {
+  color-scheme: light;
+
+  /* --- Accent --- */
+  --accent:        #5b46f2;
+  --accent-press:  #4a37d6;
+  --accent-soft:   #ece9ff;
+  --accent-softer: #f5f3ff;
+  --accent-ink:    #2a1f7a;
+  --on-accent:     #ffffff;
+
+  /* --- Neutrals (warm-cool ink, near-white paper) --- */
+  --ink-900: #14151a;
+  --ink-800: #23252e;
+  --ink-700: #3a3d49;
+  --ink-600: #565a69;
+  --ink-500: #757a8a;
+  --ink-400: #9a9faf;
+  --ink-300: #c4c8d4;
+  --ink-200: #e2e5ed;
+  --ink-150: #eceef4;
+  --ink-100: #f4f5f9;
+  --ink-50:  #fafbfd;
+  --paper:   #ffffff;
+  --canvas:  #f6f7fb;
+
+  /* --- Semantic --- */
+  --good:     #15924f;
+  --good-soft:#e4f5ea;
+  --warn:     #c6820a;
+  --warn-soft:#fbf0d8;
+  --bad:      #d2433a;
+  --bad-soft: #fbe6e4;
+  --info:     #2a72c6;
+
+  /* --- Agent status --- */
+  --working: #5b46f2;
+  --idle:    #9a9faf;
+  --review:  #c6820a;
+
+  /* --- Radii --- */
+  --r-xs: 6px;
+  --r-sm: 9px;
+  --r-md: 13px;
+  --r-lg: 18px;
+  --r-xl: 26px;
+  --r-pill: 999px;
+
+  /* --- Shadows (soft, layered) --- */
+  --sh-xs: 0 1px 2px rgba(20,21,26,.05), 0 1px 1px rgba(20,21,26,.04);
+  --sh-sm: 0 1px 3px rgba(20,21,26,.06), 0 4px 10px -4px rgba(20,21,26,.07);
+  --sh-md: 0 2px 6px rgba(20,21,26,.06), 0 14px 28px -12px rgba(20,21,26,.14);
+  --sh-lg: 0 8px 18px rgba(20,21,26,.08), 0 30px 60px -20px rgba(20,21,26,.22);
+  --sh-accent: 0 6px 18px -4px color-mix(in srgb, var(--accent) 45%, transparent);
+
+  /* --- Density --- */
+  --gap: 20px;
+  --pad: 22px;
+}
+
+/* ============================================================
+   Dark theme (net-new — ADR 0002).
+   The ink ramp inverts: --ink-900 is the strongest *text* on dark,
+   --ink-50 sits just above --canvas. Soft semantic tints are
+   re-derived against a dark --paper so "color is the alarm" holds:
+   healthy neutrals stay muted grey, alerts stay bright.
+   ============================================================ */
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --accent:        #7c6cff;
+  --accent-press:  #6a58f5;
+  --accent-soft:   #282348;
+  --accent-softer: #1e1b32;
+  --accent-ink:    #cabfff;
+  --on-accent:     #ffffff;
+
+  --ink-900: #f4f5fa;
+  --ink-800: #e3e5ee;
+  --ink-700: #c2c6d4;
+  --ink-600: #9fa4b4;
+  --ink-500: #7e8393;
+  --ink-400: #5e6373;
+  --ink-300: #474c5a;
+  --ink-200: #343947;
+  --ink-150: #2a2e3a;
+  --ink-100: #222630;
+  --ink-50:  #1a1c24;
+  --paper:   #171922;
+  --canvas:  #0e0f14;
+
+  --good:     #35c66f;
+  --good-soft:#123123;
+  --warn:     #e0a52a;
+  --warn-soft:#332813;
+  --bad:      #f0655c;
+  --bad-soft: #3a1d1b;
+  --info:     #5aa2e6;
+
+  --working: var(--accent);
+  --idle:    var(--ink-400);
+  --review:  var(--warn);
+
+  --sh-xs: 0 1px 2px rgba(0,0,0,.5), 0 1px 1px rgba(0,0,0,.4);
+  --sh-sm: 0 1px 3px rgba(0,0,0,.5), 0 4px 10px -4px rgba(0,0,0,.55);
+  --sh-md: 0 2px 6px rgba(0,0,0,.5), 0 14px 28px -12px rgba(0,0,0,.6);
+  --sh-lg: 0 8px 18px rgba(0,0,0,.55), 0 30px 60px -20px rgba(0,0,0,.7);
+}
+
+/* ---------- Global chrome that keys off tokens ---------- */
+::selection { background: var(--accent-soft); color: var(--accent-ink); }
+
+*::-webkit-scrollbar { width: 11px; height: 11px; }
+*::-webkit-scrollbar-thumb { background: var(--ink-200); border-radius: 99px; border: 3px solid transparent; background-clip: content-box; }
+*::-webkit-scrollbar-thumb:hover { background: var(--ink-300); background-clip: content-box; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* ---------- Typographic helpers ---------- */
+.display { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.02em; color: var(--ink-900); }
+.mono { font-family: var(--font-mono); font-feature-settings: "tnum" 1; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* ---------- Reusable atoms ---------- */
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 26px; padding: 0 10px;
+  border-radius: var(--r-pill);
+  font-size: 12.5px; font-weight: 600;
+  background: var(--ink-100); color: var(--ink-700);
+  border: 1px solid var(--ink-150);
+  white-space: nowrap;
+}
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 38px; padding: 0 16px;
+  border-radius: var(--r-sm);
+  font-size: 14px; font-weight: 600;
+  color: var(--ink-700);
+  background: var(--paper);
+  border: 1px solid var(--ink-200);
+  box-shadow: var(--sh-xs);
+  white-space: nowrap;
+  transition: border-color .14s, transform .08s, box-shadow .14s, color .14s, background .14s;
+}
+.btn:hover { background: var(--ink-50); border-color: var(--ink-300); }
+.btn:active { transform: translateY(1px); }
+.btn-primary {
+  color: var(--on-accent); background: var(--accent); border-color: transparent;
+  box-shadow: var(--sh-accent);
+}
+.btn-primary:hover { background: var(--accent-press); }
+.btn-ghost { background: transparent; border-color: transparent; box-shadow: none; color: var(--ink-600); }
+.btn-ghost:hover { background: var(--ink-100); }
+.btn-sm { height: 32px; padding: 0 12px; font-size: 13px; }
+.btn-icon { width: 38px; padding: 0; }
+
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+/* Animation keyframes (pulse-ring, fade-up, shimmer, spin) arrive with the
+   tickets that consume them — agent roster, health rail, loading states. */
