@@ -1,4 +1,6 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import {
+  describe, it, expect, beforeAll, afterAll,
+} from 'vitest';
 import postgres from 'postgres';
 import { getEnv } from '../lib/env';
 import { ingestCandidate, upsertEmbeddings } from './ingest';
@@ -22,6 +24,23 @@ beforeAll(async () => {
   jobId = (await sql`
     insert into job_orders (org_id, title, description, kind, must_haves)
     values (${orgId}, 'Matching Test Job', 'React work', 'contract', '["React"]'::jsonb) returning id`)[0].id;
+});
+
+// Without this, the near/far candidates created above pile up in the DB across runs (no
+// cleanup happens between test invocations), and eventually the accumulated "Near Match"
+// rows crowd this run's own near candidate out of the top-`limit` results in
+// searchCandidatesByEmbedding, making `nearHit` flaky. Delete only what this run created,
+// in FK order (scores/embeddings/candidate_documents reference candidates with no ON
+// DELETE CASCADE), so other suites' data is untouched.
+afterAll(async () => {
+  const candidateIds = [near.candidate_id, far.candidate_id];
+  await sql`delete from scores where candidate_id in ${sql(candidateIds)}`;
+  const documentIds = [near.document_id, far.document_id].filter((id): id is string => id !== null);
+  if (documentIds.length > 0) {
+    await sql`delete from embeddings where subject_type = 'candidate_document' and subject_id in ${sql(documentIds)}`;
+  }
+  await sql`delete from candidate_documents where candidate_id in ${sql(candidateIds)}`;
+  await sql`delete from candidates where id in ${sql(candidateIds)}`;
 });
 
 describe('searchCandidatesByEmbedding', () => {
