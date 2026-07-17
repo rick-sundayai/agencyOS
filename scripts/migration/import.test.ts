@@ -53,7 +53,10 @@ async function clearCheckpoints() {
 // none of which collide with real JobDiva ids or other suites' fixtures), in FK order
 // (candidate_documents before candidates; job_orders before clients).
 async function clearFixtures() {
-  const candidateIds = (await sql`select id from candidates where org_id = ${orgId} and phone = '555-1'`)
+  const candidateIds = (await sql`
+    select id from candidates
+    where org_id = ${orgId}
+      and (phone = '555-1' or jobdiva_id like 'C-dup-%' or phone in ('555-9001', '555-9002'))`)
     .map((r) => r.id as string);
   if (candidateIds.length > 0) {
     await sql`delete from candidate_documents where candidate_id in ${sql(candidateIds)}`;
@@ -108,6 +111,47 @@ describe('runImport', () => {
     const r = await runImport({ orgId, since: '2026-01-01', until: '2026-01-31', dryRun: false, client });
     expect(calls.resumeDetail).toBe(0); // zero windows computed — nothing fetched
     expect(r.candidates).toBe(0);
+  });
+
+  it('re-import with same jobdiva_id but changed email/phone updates one row, not a duplicate', async () => {
+    // Task-review fix: run-import.ts's `known` lookup (by jobdiva_id) previously fed only
+    // the resume-hash watermark check — the actual ingestCandidate() call re-resolved
+    // identity by email/phone alone, so a candidate whose email AND phone both change
+    // between two JobDiva syncs (but whose jobdiva_id stays fixed) got silently
+    // duplicated. ingestCandidate() now checks jobdiva_id first; this proves the runner
+    // exercises that path end-to-end.
+    const dupId = `C-dup-${T}`;
+    await clearCheckpoints(); // force the window loop to run for both passes below
+
+    const { client: client1 } = fakeClient();
+    client1.newUpdatedCandidateRecords = async () => ({ data: [{ ID: dupId }] });
+    client1.candidateDetail = async () => ({
+      data: [{ ID: dupId, FIRSTNAME: 'Dup', LASTNAME: 'One', EMAIL: `dup-old-${T}@example.com`, CELLPHONE: '555-9001', CITY: 'NYC' }],
+    });
+    await runImport({ orgId, since: '2026-01-01', until: '2026-01-31', dryRun: false, client: client1 });
+
+    await clearCheckpoints();
+    const { client: client2 } = fakeClient();
+    client2.newUpdatedCandidateRecords = async () => ({ data: [{ ID: dupId }] });
+    client2.candidateDetail = async () => ({
+      data: [{ ID: dupId, FIRSTNAME: 'Dup', LASTNAME: 'One', EMAIL: `dup-new-${T}@example.com`, CELLPHONE: '555-9002', CITY: 'NYC' }],
+    });
+    const r2 = await runImport({ orgId, since: '2026-01-01', until: '2026-01-31', dryRun: false, client: client2 });
+    expect(r2.candidates).toBe(1);
+
+    // Look up by the PHONE values used across both calls, not by jobdiva_id — under the
+    // bug, a duplicate row created by the second call never gets jobdiva_id backfilled
+    // (the `known` guard that used to do the backfill saw a truthy `known` from the first
+    // call), so a query scoped to jobdiva_id alone would miss the duplicate and pass
+    // regardless of the bug. This is the query that actually catches it.
+    const rows = await sql`
+      select id, jobdiva_id, phone from candidates
+      where org_id = ${orgId} and phone in ('555-9001', '555-9002')`;
+    expect(rows.length).toBe(1);
+    // ingestCandidate() keeps identity fields (email/phone) sticky to the FIRST value seen
+    // once matched via jobdiva_id — so the single surviving row still carries the original phone.
+    expect(rows[0].phone).toBe('555-9001');
+    expect(rows[0].jobdiva_id).toBe(dupId);
   });
 
   it('dry-run writes nothing', async () => {

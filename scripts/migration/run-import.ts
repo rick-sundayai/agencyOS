@@ -98,16 +98,13 @@ async function importCandidate(
     }
   }
 
-  const { candidate_id, document_id } = await ingestCandidate({
+  const { document_id } = await ingestCandidate({
     org_id: orgId, full_name: m.full_name, email: m.email, phone: m.phone,
     current_title: m.current_title, location: m.location, source: m.source,
-    resume_text: resumeText,
+    resume_text: resumeText, jobdiva_id: m.jobdiva_id,
   });
   resumeImported = document_id !== null;
 
-  if (!known) {
-    await db.update(candidates).set({ jobdiva_id: m.jobdiva_id }).where(eq(candidates.id, candidate_id));
-  }
   return { imported: true, resumeImported };
 }
 

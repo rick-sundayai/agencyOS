@@ -36,6 +36,30 @@ describe('ingestCandidate', () => {
     expect(cand.phone).toBe('+15550001111');
   });
 
+  it('dedupes on jobdiva_id even when email AND phone both change between calls', async () => {
+    const t = Date.now();
+    const jobdivaId = `JD-${t}`;
+    // Phone/email are templated by `t` (unique per test run) — a literal constant here
+    // would risk colliding with a leftover row from a prior run via the phone/email
+    // fallback and produce a false-positive dedupe, masking the actual jobdiva_id path
+    // this test is meant to exercise.
+    const first = await ingestCandidate({
+      org_id: orgId, full_name: 'JobDiva Person', jobdiva_id: jobdivaId,
+      email: `jd-old-${t}@example.com`, phone: `+1555${t.toString().slice(-7)}`,
+    });
+    expect(first.deduped).toBe(false);
+
+    const second = await ingestCandidate({
+      org_id: orgId, full_name: 'JobDiva Person', jobdiva_id: jobdivaId,
+      email: `jd-new-${t}@example.com`, phone: `+1666${t.toString().slice(-7)}`,
+    });
+    expect(second.deduped).toBe(true);
+    expect(second.candidate_id).toBe(first.candidate_id);
+
+    const [{ n }] = await sql`select count(*)::int as n from candidates where org_id = ${orgId} and jobdiva_id = ${jobdivaId}`;
+    expect(n).toBe(1);
+  });
+
   it('serializes concurrent ingests for the same identity — no duplicate candidates', async () => {
     const raceEmail = `race-${Date.now()}@example.com`;
     const [a, b] = await Promise.all([

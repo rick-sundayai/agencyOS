@@ -12,6 +12,7 @@ export const CandidateIngestSchema = z.strictObject({
   location: z.string().nullable().default(null),
   source: z.string().nullable().default(null),
   resume_text: z.string().nullable().default(null),
+  jobdiva_id: z.string().nullable().default(null),
 });
 
 export async function ingestCandidate(input: unknown): Promise<{
@@ -19,16 +20,26 @@ export async function ingestCandidate(input: unknown): Promise<{
 }> {
   const p = CandidateIngestSchema.parse(input);
 
-  // The dedupe match is email-OR-phone, not one column, so a DB unique constraint can't
-  // enforce it directly. Serialize concurrent ingests for the same identity with an
-  // advisory lock (released automatically at transaction end) instead — without it, two
-  // concurrent calls for the same person can both see "no match" and both insert.
+  // The dedupe match is jobdiva_id (when present) or email-OR-phone, not one column, so a
+  // DB unique constraint can't enforce it directly. Serialize concurrent ingests for the
+  // same identity with an advisory lock (released automatically at transaction end)
+  // instead — without it, two concurrent calls for the same person can both see "no
+  // match" and both insert.
   return db.transaction(async (tx) => {
-    const lockKey = `${p.org_id}|${(p.email ?? p.phone ?? '').toLowerCase()}`;
+    const lockKey = p.jobdiva_id
+      ? `${p.org_id}|jobdiva:${p.jobdiva_id}`
+      : `${p.org_id}|${(p.email ?? p.phone ?? '').toLowerCase()}`;
     await tx.execute(dsql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);
 
     let existing: typeof candidates.$inferSelect | undefined;
-    if (p.email) {
+    // jobdiva_id is an external, stable identifier — check it FIRST, before email/phone,
+    // since those can legitimately change between sync runs while jobdiva_id stays fixed.
+    if (p.jobdiva_id) {
+      [existing] = await tx.select().from(candidates).where(and(
+        eq(candidates.org_id, p.org_id), eq(candidates.jobdiva_id, p.jobdiva_id),
+      ));
+    }
+    if (!existing && p.email) {
       [existing] = await tx.select().from(candidates).where(and(
         eq(candidates.org_id, p.org_id),
         dsql`lower(${candidates.email}) = lower(${p.email})`,
@@ -51,11 +62,13 @@ export async function ingestCandidate(input: unknown): Promise<{
         current_title: p.current_title ?? existing.current_title,
         location: p.location ?? existing.location,
         source: p.source ?? existing.source,
+        jobdiva_id: existing.jobdiva_id ?? p.jobdiva_id,
       }).where(eq(candidates.id, existing.id));
     } else {
       const [row] = await tx.insert(candidates).values({
         org_id: p.org_id, full_name: p.full_name, email: p.email, phone: p.phone,
         current_title: p.current_title, location: p.location, source: p.source,
+        jobdiva_id: p.jobdiva_id,
       }).returning();
       candidateId = row.id;
     }
