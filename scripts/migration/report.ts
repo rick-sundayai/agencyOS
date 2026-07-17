@@ -22,9 +22,11 @@ async function main() {
     where c.org_id=${orgId} and c.jobdiva_id is not null
       and not exists (select 1 from candidate_documents d where d.candidate_id=c.id)
     order by c.full_name limit 200`;
-  // Mirror backfill-embeddings.ts exactly: latest version, has text, candidate_document
-  // subject type — otherwise superseded resume versions show as permanently un-embedded
-  // and the report can never converge.
+  // Filters org via joined candidate row (c.org_id), not candidate_documents.org_id directly.
+  // This works because ingestCandidate ensures documents' org_id stays in sync with their
+  // candidate's — an app-level invariant, not a DB constraint. Matches embedding detection
+  // logic exactly: latest version with parsed_text and no existing embedding row — otherwise
+  // superseded resume versions show as permanently un-embedded and report can never converge.
   const noEmbedding = await sql`
     select c.full_name from candidates c
     join candidate_documents d on d.candidate_id=c.id

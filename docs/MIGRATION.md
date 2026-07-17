@@ -3,6 +3,8 @@
 Order of operations. Each step is safe to repeat — the import is idempotent
 (jobdiva_id upserts + resume-hash watermark) and the backfill is resumable.
 
+**⚠️ Client caveat**: Company/client records are currently matched by name only, not a stable JobDiva id. Re-running the import with a renamed or duplicate company string may create a second `clients` row. This is deferred pending live fixture capture (Step 1) confirming whether JobDiva's job records expose a stable company/client identifier. Revisit before relying on repeated production runs.
+
 1. **Fixture capture** — `npx tsx scripts/migration/capture-fixtures.ts`
    Confirms endpoints, date format, field names. Inspect `scripts/migration/fixtures/`.
 2. **Dry run** — `npx tsx scripts/migration/run-import.ts --since 2026-06-01 --dry-run --limit 10`
