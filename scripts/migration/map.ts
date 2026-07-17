@@ -22,7 +22,7 @@ export function mapCandidate(row: BiRow) {
   return {
     jobdiva_id: String(row.ID ?? row.CANDIDATEID ?? ''),
     full_name: [s(row, 'FIRSTNAME'), s(row, 'LASTNAME')].filter(Boolean).join(' ') || 'Unknown',
-    email: rawEmail && /.+@.+\..+/.test(rawEmail) ? rawEmail : null,
+    email: rawEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail) ? rawEmail : null,
     phone: s(row, 'CELLPHONE') ?? s(row, 'PHONE2') ?? s(row, 'PHONE1'),
     current_title: s(row, 'TITLE'),
     location: [s(row, 'CITY'), s(row, 'STATE'), s(row, 'COUNTRY')].filter(Boolean).join(', ') || null,

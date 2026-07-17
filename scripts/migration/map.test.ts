@@ -25,6 +25,9 @@ describe('mapCandidate', () => {
   it('nulls a malformed email instead of failing the record', () => {
     expect(mapCandidate({ ...row, EMAIL: 'not-an-email' }).email).toBeNull();
   });
+  it('rejects emails with junk wrapped around valid addresses (substring match guard)', () => {
+    expect(mapCandidate({ ...row, EMAIL: 'John Doe <john@example.com> (verify)' }).email).toBeNull();
+  });
 });
 
 describe('mapJob', () => {
