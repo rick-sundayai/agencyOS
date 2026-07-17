@@ -6,7 +6,7 @@ export default defineConfig({
   test: {
     environment: 'node', // DB/API tests stay in node; component tests opt into jsdom per-file
     globals: true, // required for @testing-library/react's automatic afterEach(cleanup)
-    include: ['src/**/*.test.{ts,tsx}'],
+    include: ['src/**/*.test.{ts,tsx}', 'n8n/**/*.test.ts'],
     setupFiles: ['dotenv/config'],
     env: { DOTENV_CONFIG_PATH: '.env.local' },
   },

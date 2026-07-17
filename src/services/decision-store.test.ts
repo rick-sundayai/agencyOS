@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import postgres from 'postgres';
 import { getEnv } from '../lib/env';
-import { proposeDecision, transitionDecision, listQueue, getDecision } from './decision-store';
+import { proposeDecision, transitionDecision, listQueue, getDecision, listExecutable } from './decision-store';
 
 const sql = postgres(getEnv('DATABASE_URL'), { max: 1 });
 let orgId: string;
@@ -126,5 +126,54 @@ describe('listQueue', () => {
     expect(ids).toContain(t3.id);
     expect(ids).toContain(t2.id);
     expect(ids).not.toContain(t1.id);
+  });
+});
+
+describe('listExecutable', () => {
+  it('includes expired-undo tier-2 and null-undo tier-1, excludes future-undo and proposed', async () => {
+    const t1 = await proposeDecision(proposal('screen.score_resume'));       // approved, undo null
+    const t2live = await proposeDecision(proposal('comms.candidate_outreach')); // approved, undo future
+    const t2done = await proposeDecision(proposal('comms.candidate_outreach'));
+    await sql`update decisions set undo_expires_at = now() - interval '1 minute' where id = ${t2done.id}`;
+    const t3 = await proposeDecision(proposal('client.submit_candidate'));   // proposed
+
+    const ids = (await listExecutable({ orgId })).map((d) => d.id);
+    expect(ids).toContain(t1.id);
+    expect(ids).toContain(t2done.id);
+    expect(ids).not.toContain(t2live.id);
+    expect(ids).not.toContain(t3.id);
+  });
+
+  it('filters by action prefix', async () => {
+    const t1 = await proposeDecision(proposal('screen.score_resume'));
+    const ids = (await listExecutable({ orgId, actionPrefix: 'comms.' })).map((d) => d.id);
+    expect(ids).not.toContain(t1.id);
+  });
+});
+
+describe('transitionDecision extras', () => {
+  it('records error on failed and outcome on executed', async () => {
+    const a = await proposeDecision(proposal('screen.score_resume')); // approved
+    const executing = await transitionDecision(a.id, 'executing', 'screening');
+    const failed = await transitionDecision(executing.id, 'failed', 'screening', { error: 'boom' });
+    expect(failed.error).toBe('boom');
+
+    const b = await proposeDecision(proposal('screen.score_resume'));
+    await transitionDecision(b.id, 'executing', 'screening');
+    const done = await transitionDecision(b.id, 'executed', 'screening', { outcome: { ok: true } });
+    expect(done.outcome).toEqual({ ok: true });
+    expect(done.executed_at).not.toBeNull();
+  });
+
+  it('still 409s on a lost compare-and-swap race (ADR-0003 must survive the extras change)', async () => {
+    const d = await proposeDecision(proposal('comms.candidate_outreach')); // approved
+    const [a, b] = await Promise.allSettled([
+      transitionDecision(d.id, 'executing', 'communication'),
+      transitionDecision(d.id, 'cancelled', 'user-1'),
+    ]);
+    const outcomes = [a, b];
+    expect(outcomes.filter((o) => o.status === 'fulfilled')).toHaveLength(1);
+    const loser = outcomes.find((o) => o.status === 'rejected') as PromiseRejectedResult;
+    expect(loser.reason.message).toMatch(/already transitioned by another process/);
   });
 });

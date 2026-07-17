@@ -1,16 +1,9 @@
 import { ZodError } from 'zod';
-import { getEnv } from '../../../../lib/env';
+import { requireAgentKey } from '../../../../lib/agent-auth';
 import { proposeDecision, listQueue } from '../../../../services/decision-store';
 
-function unauthorized(req: Request): Response | null {
-  if (req.headers.get('x-agent-api-key') !== getEnv('AGENT_API_KEY')) {
-    return Response.json({ error: 'unauthorized' }, { status: 401 });
-  }
-  return null;
-}
-
 export async function POST(req: Request): Promise<Response> {
-  const denied = unauthorized(req);
+  const denied = requireAgentKey(req);
   if (denied) return denied;
   try {
     const decision = await proposeDecision(await req.json());
@@ -24,7 +17,7 @@ export async function POST(req: Request): Promise<Response> {
 }
 
 export async function GET(req: Request): Promise<Response> {
-  const denied = unauthorized(req);
+  const denied = requireAgentKey(req);
   if (denied) return denied;
   const orgId = new URL(req.url).searchParams.get('org_id');
   if (!orgId) return Response.json({ error: 'org_id required' }, { status: 400 });

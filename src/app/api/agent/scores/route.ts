@@ -1,0 +1,16 @@
+import { ZodError } from 'zod';
+import { requireAgentKey } from '../../../../lib/agent-auth';
+import { insertScore } from '../../../../services/matching';
+
+export async function POST(req: Request): Promise<Response> {
+  const denied = requireAgentKey(req);
+  if (denied) return denied;
+  try {
+    return Response.json({ score: await insertScore(await req.json()) }, { status: 201 });
+  } catch (err) {
+    if (err instanceof ZodError) {
+      return Response.json({ error: 'validation_failed', issues: err.issues }, { status: 400 });
+    }
+    return Response.json({ error: 'internal_error' }, { status: 500 });
+  }
+}
