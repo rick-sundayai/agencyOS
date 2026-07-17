@@ -7,11 +7,14 @@ KEY=dev-agent-key-change-me
 # port 5433 with whichever sibling worktree/checkout already owns the shared dev Postgres —
 # same DATABASE_URL everywhere, so same data). Prefer this project's own "db" container if it
 # happens to be up; otherwise fall back to whatever container currently publishes port 5433.
+# -q (quiet) suppresses psql's command-completion tag (e.g. "INSERT 0 1"), which otherwise
+# gets appended after the RETURNING value in `$(...)` captures and corrupts callers like
+# `JOB_ID=$($PSQL "insert ... returning id")`.
 if [ -n "$(docker compose ps db --status running -q 2>/dev/null)" ]; then
-  PSQL="docker compose exec -T db psql -U agency -tA -c"
+  PSQL="docker compose exec -T db psql -U agency -tAq -c"
 else
   DB_CONTAINER=$(docker ps --filter "publish=5433" --format '{{.Names}}' | head -1)
-  PSQL="docker exec -i ${DB_CONTAINER:-db} psql -U agency -tA -c"
+  PSQL="docker exec -i ${DB_CONTAINER:-db} psql -U agency -tAq -c"
 fi
 
 api_get()  { curl -s -H "x-agent-api-key: $KEY" "$API$1"; }
