@@ -58,3 +58,11 @@ Scorer: calibrated v2.2.0 + C01-hard-gate-v2 (`n8n/lib/parse-score-output.js`, p
 from `n8n/prompts/`). Compliance gate: consent deny, quiet-hours/frequency defer.
 
 Golden tests (need `npm run dev` + `GEMINI_API_KEY`): `bash n8n/tests/e2e-golden-path.sh`.
+
+Known limitation: the Communication Agent's per-decision error handling has two try/catch
+scopes. If the `transition()` call that moves a decision to `'failed'` itself throws (rare
+race or transient API error), that decision can be stuck in `'executing'` permanently — not
+retried (next tick only lists `'approved'`) and not visible in the cockpit queue (which lists
+`'proposed'`/`'approved'`). This is a visibility gap, not a safety issue: it never causes a
+double-send or lost data, it just never sends and never surfaces to a human. A periodic sweep
+to re-surface or reset long-stuck `'executing'` decisions is planned for Plan 1d.

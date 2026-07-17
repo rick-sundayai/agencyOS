@@ -1,10 +1,11 @@
 // Compiles n8n/workflows/src/*.workflow.mjs into importable JSON in n8n/dist/.
-import { mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const SRC = resolve('n8n/workflows/src');
 const DIST = resolve('n8n/dist');
+rmSync(DIST, { recursive: true, force: true });
 mkdirSync(DIST, { recursive: true });
 
 for (const file of readdirSync(SRC).filter((f) => f.endsWith('.workflow.mjs'))) {
