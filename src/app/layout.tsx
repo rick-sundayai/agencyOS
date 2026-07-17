@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Schibsted_Grotesk, Hanken_Grotesk, Spline_Sans_Mono } from "next/font/google";
-import Link from "next/link";
 import { auth, signOut } from "../lib/auth";
+import { listQueue } from "../services/decision-store";
 import { ThemeToggle, THEME_STORAGE_KEY, DEFAULT_THEME } from "../components/ThemeToggle";
+import { SidebarNav } from "../components/SidebarNav";
 import "./tokens.css";
 import "./globals.css";
 
@@ -43,6 +44,12 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const session = await auth();
+  // Server-rendered seed for the Cockpit nav badge — the count of Decisions in the
+  // operator's queue at load. SidebarNav then keeps it live off the Cockpit stream.
+  const pendingCount = session ? (await listQueue(session.user.org_id)).length : 0;
+  const accountName = session?.user.name ?? session?.user.email ?? "Operator";
+  const accountInitials = initials(accountName);
+
   return (
     <html
       lang="en"
@@ -52,25 +59,53 @@ export default async function RootLayout({
     >
       <body>
         <script dangerouslySetInnerHTML={{ __html: noFlashTheme }} />
-        {session && (
-          <nav className="topnav">
-            <Link href="/">Queue</Link>
-            <Link href="/jobs">Jobs</Link>
-            <Link href="/candidates">Candidates</Link>
-            <Link href="/clients">Clients</Link>
-            <ThemeToggle />
-            <form
-              action={async () => {
-                "use server";
-                await signOut({ redirectTo: "/login" });
-              }}
-            >
-              <button type="submit" className="secondary">Sign out</button>
-            </form>
-          </nav>
+        {session ? (
+          <div className="shell">
+            <aside className="sidebar">
+              <div className="brand">
+                <div className="brand-mark" aria-hidden="true" />
+                <div className="brand-text">
+                  <span className="brand-name display">AgencyOS</span>
+                  <span className="brand-sub">Control Room</span>
+                </div>
+              </div>
+              <SidebarNav pendingCount={pendingCount} />
+              <div className="sidebar-spacer" />
+              <div className="sidebar-footer">
+                <div className="account">
+                  <span className="avatar" aria-hidden="true">{accountInitials}</span>
+                  <div className="account-meta">
+                    <span className="account-name">{accountName}</span>
+                    <span className="account-role">{session.user.role}</span>
+                  </div>
+                </div>
+                <div className="sidebar-actions">
+                  <ThemeToggle />
+                  <form
+                    action={async () => {
+                      "use server";
+                      await signOut({ redirectTo: "/login" });
+                    }}
+                  >
+                    <button type="submit" className="btn btn-sm btn-ghost">Sign out</button>
+                  </form>
+                </div>
+              </div>
+            </aside>
+            <div className="content">{children}</div>
+          </div>
+        ) : (
+          children
         )}
-        {children}
       </body>
     </html>
   );
+}
+
+/** Up to two initials from a display name or email, for the account avatar. */
+function initials(nameOrEmail: string): string {
+  const base = nameOrEmail.split("@")[0];
+  const parts = base.split(/[.\s_-]+/).filter(Boolean);
+  const letters = (parts.length >= 2 ? `${parts[0][0]}${parts[1][0]}` : base.slice(0, 2)) || "?";
+  return letters.toUpperCase();
 }
