@@ -46,3 +46,6 @@ next-env.d.ts
 
 # n8n build output
 n8n/dist/
+
+# migration fixtures (real PII, never commit)
+scripts/migration/fixtures/
