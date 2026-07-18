@@ -1,0 +1,57 @@
+# .github/workflows/deploy-staging.yml
+name: deploy-staging
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency: deploy-staging
+
+env:
+  AR: ${{ vars.GCP_AR }}
+  REGION: ${{ vars.GCP_REGION }}
+  STAGING_PROJECT: agencyos-staging
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - run: gcloud auth configure-docker ${REGION}-docker.pkg.dev --quiet
+
+      - name: Build and push images
+        run: |
+          docker build --target runtime -t "$AR/app:$GITHUB_SHA" .
+          docker build --target migrate -t "$AR/migrate:$GITHUB_SHA" .
+          docker push "$AR/app:$GITHUB_SHA"
+          docker push "$AR/migrate:$GITHUB_SHA"
+
+      - name: Run migrations (Cloud Run Job)
+        run: |
+          gcloud run jobs update migrate \
+            --project "$STAGING_PROJECT" --region "$REGION" \
+            --image "$AR/migrate:$GITHUB_SHA"
+          gcloud run jobs execute migrate \
+            --project "$STAGING_PROJECT" --region "$REGION" --wait
+
+      - name: Deploy app
+        run: |
+          gcloud run deploy app \
+            --project "$STAGING_PROJECT" --region "$REGION" \
+            --image "$AR/app:$GITHUB_SHA"
+
+      - name: Smoke test
+        run: |
+          URL=$(gcloud run services describe app \
+            --project "$STAGING_PROJECT" --region "$REGION" \
+            --format 'value(status.url)')
+          SMOKE_BASE_URL="$URL" npx --yes tsx scripts/smoke.ts
