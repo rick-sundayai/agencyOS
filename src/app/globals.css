@@ -92,6 +92,37 @@ button:disabled { opacity: 0.5; cursor: default; }
 .tbadge-approval { color: var(--warn); background: var(--warn-soft); }
 .tbadge-risk { color: var(--bad); background: var(--bad-soft); }
 
+/* Make the summary a click target for the Drawer without looking like a button. */
+.dcard-summary-btn { display: block; width: 100%; text-align: left; background: none; border: none; padding: 0; cursor: pointer; }
+.dcard-summary-btn:hover { color: var(--accent); }
+
+/* --- cockpit: Decision Drawer --- */
+.drawer-scrim { position: fixed; inset: 0; z-index: 50; background: color-mix(in srgb, var(--ink-900) 30%, transparent); display: flex; justify-content: flex-end; }
+.rp-drawer {
+  width: 520px; max-width: 92vw; height: 100%;
+  background: var(--paper); border-left: 1px solid var(--ink-200);
+  box-shadow: var(--sh-lg); display: flex; flex-direction: column;
+}
+.drawer-head { display: flex; align-items: center; gap: 10px; padding: 16px 18px; border-bottom: 1px solid var(--ink-150); }
+.drawer-action { font-size: 13.5px; font-weight: 600; color: var(--ink-900); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.drawer-body { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+.drawer-summary { font-size: 16px; font-weight: 600; color: var(--ink-900); line-height: 1.45; text-wrap: pretty; }
+.drawer-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-500); margin-bottom: 8px; }
+.drawer-empty { font-size: 13px; color: var(--ink-400); }
+.drawer-payload { background: var(--ink-100); color: var(--ink-700); padding: 12px; border-radius: var(--r-sm); overflow-x: auto; font-size: 12px; }
+.drawer-footer { border-top: 1px solid var(--ink-150); padding: 14px 18px; }
+
+.evlist { list-style: none; }
+.evrow { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: start; padding: 12px 0; border-bottom: 1px solid var(--ink-100); font-size: 13.5px; color: var(--ink-800); }
+.evrow:last-child { border-bottom: none; }
+/* Inferred evidence gets a warn tint so it's plainly distinct from sourced fact. */
+.evrow.inferred { background: color-mix(in srgb, var(--warn-soft) 45%, transparent); margin: 0 -12px; padding: 12px; border-radius: var(--r-sm); border-bottom: 1px solid transparent; }
+.evrow-mark { color: var(--ink-400); }
+.evrow.inferred .evrow-mark { color: var(--warn); }
+.evrow-prov { font-size: 11px; font-weight: 600; color: var(--warn); text-transform: uppercase; letter-spacing: .03em; }
+.srclink { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: var(--ink-500); padding: 4px 9px; border-radius: var(--r-pill); border: 1px solid var(--ink-200); background: var(--paper); white-space: nowrap; transition: border-color .12s, color .12s; }
+.srclink:hover { color: var(--accent); border-color: var(--accent); }
+
 /* --- cockpit: ATS views --- */
 table.list { width: 100%; border-collapse: collapse; }
 table.list th, table.list td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #eee; }

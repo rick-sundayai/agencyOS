@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { DecisionCard } from './DecisionCard';
+import { DecisionDrawer } from './DecisionDrawer';
 import type { QueueDecision } from './queue-types';
 
 export function QueueLive({ initial }: { initial: QueueDecision[] }) {
   const [queue, setQueue] = useState(initial);
   const [connected, setConnected] = useState(true);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
     const es = new EventSource('/api/cockpit/stream');
@@ -23,6 +25,14 @@ export function QueueLive({ initial }: { initial: QueueDecision[] }) {
   }, []);
 
   const remove = (id: string) => setQueue((q) => q.filter((d) => d.id !== id));
+  const resolve = (id: string) => {
+    remove(id);
+    setOpenId((current) => (current === id ? null : current));
+  };
+
+  // Look the open Decision up from the live queue by id, so an open Drawer reflects the
+  // latest streamed state rather than a stale snapshot; if it leaves the queue, close.
+  const openDecision = openId ? queue.find((d) => d.id === openId) ?? null : null;
 
   return (
     <>
@@ -37,9 +47,12 @@ export function QueueLive({ initial }: { initial: QueueDecision[] }) {
       ) : (
         <div className="queue">
           {queue.map((d) => (
-            <DecisionCard key={d.id} decision={d} onResolved={remove} />
+            <DecisionCard key={d.id} decision={d} onResolved={remove} onOpen={() => setOpenId(d.id)} />
           ))}
         </div>
+      )}
+      {openDecision && (
+        <DecisionDrawer decision={openDecision} onClose={() => setOpenId(null)} onResolved={resolve} />
       )}
     </>
   );
