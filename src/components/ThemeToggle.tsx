@@ -34,7 +34,10 @@ export function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>(DEFAULT_THEME);
 
   useEffect(() => {
+    // Server renders DEFAULT_THEME; this reads the client's persisted choice
+    // (an external system — localStorage) and corrects state after mount.
     const stored = readStoredTheme();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme(stored);
     applyTheme(stored);
   }, []);
