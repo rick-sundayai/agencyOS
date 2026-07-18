@@ -176,9 +176,7 @@ resource "google_service_account" "n8n" {
 }
 
 resource "google_secret_manager_secret_iam_member" "app_reads" {
-  for_each = toset(["database-url", "auth-secret", "agent-api-key",
-    "jobdiva-client-id", "jobdiva-username", "jobdiva-password"
-  ])
+  for_each  = toset(["database-url", "auth-secret", "agent-api-key"])
   project   = google_project.stamp.project_id
   secret_id = google_secret_manager_secret.s[each.key].secret_id
   role      = "roles/secretmanager.secretAccessor"
@@ -186,7 +184,8 @@ resource "google_secret_manager_secret_iam_member" "app_reads" {
 }
 
 resource "google_secret_manager_secret_iam_member" "n8n_reads" {
-  for_each  = toset(["n8n-db-password", "n8n-encryption-key", "agent-api-key"])
+  for_each = toset(["n8n-db-password", "n8n-encryption-key", "agent-api-key",
+  "jobdiva-client-id", "jobdiva-username", "jobdiva-password"])
   project   = google_project.stamp.project_id
   secret_id = google_secret_manager_secret.s[each.key].secret_id
   role      = "roles/secretmanager.secretAccessor"
@@ -328,8 +327,11 @@ resource "google_cloud_run_v2_service" "n8n" {
       }
       dynamic "env" {
         for_each = { DB_POSTGRESDB_PASSWORD = "n8n-db-password",
-          N8N_ENCRYPTION_KEY = "n8n-encryption-key",
-        AGENCYOS_AGENT_API_KEY = "agent-api-key" }
+          N8N_ENCRYPTION_KEY     = "n8n-encryption-key",
+          AGENCYOS_AGENT_API_KEY = "agent-api-key",
+          JOBDIVA_CLIENT_ID      = "jobdiva-client-id",
+          JOBDIVA_USERNAME       = "jobdiva-username",
+        JOBDIVA_PASSWORD = "jobdiva-password" }
         content {
           name = env.key
           value_source {
