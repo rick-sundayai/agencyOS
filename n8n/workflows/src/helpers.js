@@ -39,5 +39,6 @@ const chunkText = (text, size = 1500, overlap = 200) => {
   }
   return out;
 };
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- n8n Code node runs as CommonJS, not bundled
 const sha256 = (s) => require('crypto').createHash('sha256').update(s).digest('hex');
 // ---- end helpers ----

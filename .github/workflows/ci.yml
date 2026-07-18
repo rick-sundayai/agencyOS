@@ -1,0 +1,46 @@
+# .github/workflows/ci.yml
+name: ci
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: agency
+          POSTGRES_PASSWORD: agency
+          POSTGRES_DB: agency
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U agency"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://agency:agency@localhost:5433/agency
+      AUTH_SECRET: ci-only-secret
+      AGENT_API_KEY: ci-only-agent-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Migrate test database
+        run: npx tsx scripts/migrate.ts
+      - name: Seed baseline org
+        # Many suites read a fixed org by name (see src/test/fixtures.ts and
+        # several *.test.ts files) rather than creating their own — mirroring
+        # local dev, where `npm run db:seed` has already created it once.
+        # Insert just that row (not the full seed script, which also creates
+        # a real admin user/password and reads prompt snapshots off disk —
+        # unnecessary and inappropriate for an ephemeral CI database).
+        run: psql "$DATABASE_URL" -c "insert into orgs (name) values ('Sunday AI Work');"
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      # NOTE: `tsc --noEmit` intentionally absent — 4 pre-existing errors in
+      # scripts/migration/*.ts. Add it here once those are fixed.
