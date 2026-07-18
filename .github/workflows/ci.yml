@@ -31,6 +31,14 @@ jobs:
       - run: npm ci
       - name: Migrate test database
         run: npx tsx scripts/migrate.ts
+      - name: Seed baseline org
+        # Many suites read a fixed org by name (see src/test/fixtures.ts and
+        # several *.test.ts files) rather than creating their own — mirroring
+        # local dev, where `npm run db:seed` has already created it once.
+        # Insert just that row (not the full seed script, which also creates
+        # a real admin user/password and reads prompt snapshots off disk —
+        # unnecessary and inappropriate for an ephemeral CI database).
+        run: psql "$DATABASE_URL" -c "insert into orgs (name) values ('Sunday AI Work');"
       - run: npm run lint
       - run: npm test
       - run: npm run build
