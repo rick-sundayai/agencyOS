@@ -25,12 +25,18 @@ export default async function LoginPage({
   const { error } = await searchParams;
   return (
     <main className="login">
-      <h1>AgencyOS</h1>
+      <div className="login-brand">
+        <div className="brand-mark" aria-hidden="true" />
+        <div className="brand-text">
+          <span className="brand-name display">AgencyOS</span>
+          <span className="brand-sub">Control Room</span>
+        </div>
+      </div>
       {error && <p className="error">Invalid email or password.</p>}
       <form action={loginAction}>
         <input name="email" type="email" placeholder="Email" required autoFocus />
         <input name="password" type="password" placeholder="Password" required />
-        <button type="submit">Sign in</button>
+        <button type="submit" className="btn btn-primary">Sign in</button>
       </form>
     </main>
   );
