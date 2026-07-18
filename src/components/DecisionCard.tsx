@@ -4,11 +4,14 @@ import { useEffect, useState, useTransition } from 'react';
 import { approveDecisionAction, cancelDecisionAction } from '../app/queue-actions';
 import type { QueueDecision } from './queue-types';
 
-const TIER_LABELS: Record<string, string> = {
-  '1': 'Auto',
-  '2': 'Undo window',
-  '3': 'Needs approval',
-  risk: 'Risk',
+// Tier label + badge tone, single-sourced so the two can't drift. "Color is the alarm":
+// Auto is the calmest (neutral ink), Risk the loudest (bad); Undo-window reads accent,
+// Needs-approval reads warn. Unknown tiers fall back together, not half-and-half.
+const TIERS: Record<string, { label: string; tone: string }> = {
+  '1': { label: 'Auto', tone: 'tbadge-auto' },
+  '2': { label: 'Undo window', tone: 'tbadge-undo' },
+  '3': { label: 'Needs approval', tone: 'tbadge-approval' },
+  risk: { label: 'Risk', tone: 'tbadge-risk' },
 };
 
 function useCountdownMs(expiresAt: string | null): number | null {
@@ -61,49 +64,53 @@ export function DecisionCard({
       }
     });
 
+  const tier = TIERS[decision.tier] ?? { label: decision.tier, tone: 'tbadge-approval' };
+
   return (
-    <article className={`card tier-${decision.tier}`} data-testid="decision-card">
-      <header>
-        <span className="badge">{TIER_LABELS[decision.tier] ?? decision.tier}</span>
-        <strong>{decision.action_class}</strong>
-        <span className="agent">{decision.agent}</span>
-        <time>{new Date(decision.proposed_at).toLocaleString()}</time>
-      </header>
-      <p>{reasoning.summary ?? 'No summary provided'}</p>
+    <article className={`dcard${isRisk ? ' risk' : ''}`} data-testid="decision-card">
+      <div className="dcard-head">
+        <span className={`tbadge ${tier.tone}`}>
+          <span className="dot" aria-hidden="true" />
+          {tier.label}
+        </span>
+        <strong className="dcard-action mono">{decision.action_class}</strong>
+        <span className="dcard-agent">{decision.agent}</span>
+        <time className="dcard-time">{new Date(decision.proposed_at).toLocaleString()}</time>
+      </div>
+
+      <p className="dcard-summary">{reasoning.summary ?? 'No summary provided'}</p>
+
       {inUndoWindow && remaining !== null && (
-        <p className="countdown">
+        <p className="dcard-countdown mono">
           Executes in {Math.max(0, Math.floor(remaining / 1000))}s unless cancelled
         </p>
       )}
-      <details>
+
+      <details className="dcard-why">
         <summary>Why?</summary>
         <ul>
           {(reasoning.evidence ?? []).map((e, i) => (
             <li key={i}>{e}</li>
           ))}
         </ul>
-        <p className="meta">
+        <p className="dcard-meta">
           {reasoning.model ?? 'unknown model'} · {reasoning.prompt_version ?? 'unversioned'}
         </p>
         <pre>{JSON.stringify(decision.payload, null, 2)}</pre>
       </details>
-      <footer>
+
+      <footer className="dcard-actions">
         {decision.state === 'proposed' && !isRisk && (
-          <button disabled={pending} onClick={() => act(approveDecisionAction)}>
+          <button type="button" className="btn btn-sm btn-primary" disabled={pending} onClick={() => act(approveDecisionAction)}>
             Approve
           </button>
         )}
-        {inUndoWindow ? (
-          <button disabled={pending} className="secondary" onClick={() => act(cancelDecisionAction)}>
-            Undo
-          </button>
-        ) : (
-          <button disabled={pending} className="secondary" onClick={() => act(cancelDecisionAction)}>
-            {isRisk ? 'Resolve' : 'Reject'}
-          </button>
-        )}
+        <button type="button" className="btn btn-sm" disabled={pending} onClick={() => act(cancelDecisionAction)}>
+          {inUndoWindow ? 'Undo' : isRisk ? 'Resolve' : 'Reject'}
+        </button>
       </footer>
-      {error && <p className="error">{error}</p>}
+
+      {error && <p className="dcard-error">{error}</p>}
     </article>
   );
 }

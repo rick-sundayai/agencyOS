@@ -56,6 +56,34 @@ describe('DecisionCard', () => {
     expect(screen.getByRole('button', { name: 'Resolve' })).toBeDefined();
   });
 
+  it.each([
+    ['1', 'Auto'],
+    ['2', 'Undo window'],
+    ['3', 'Needs approval'],
+    ['risk', 'Risk'],
+  ])('tier %s renders the %s badge', (tier, label) => {
+    render(<DecisionCard decision={{ ...base, tier }} />);
+    expect(screen.getByText(label)).toBeDefined();
+  });
+
+  it('a proposed non-Risk Decision shows both Approve and Reject', () => {
+    render(<DecisionCard decision={base} />); // base is tier 3, proposed
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Reject' })).toBeDefined();
+  });
+
+  it('hides Approve during the Undo window (already approved, not re-approvable)', () => {
+    const tier2: QueueDecision = {
+      ...base,
+      tier: '2',
+      state: 'approved',
+      undo_expires_at: new Date(Date.now() + 10 * 60_000).toISOString(),
+    };
+    render(<DecisionCard decision={tier2} />);
+    expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeDefined();
+  });
+
   it('undo-window cards show a countdown and an Undo button', async () => {
     const tier2: QueueDecision = {
       ...base,
