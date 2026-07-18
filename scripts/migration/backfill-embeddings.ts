@@ -2,29 +2,13 @@ import 'dotenv/config';
 import { db } from '../../src/db/client';
 import { sql as dsql } from 'drizzle-orm';
 import { upsertEmbeddings } from '../../src/services/ingest';
+import { defaultEmbedder } from '../../src/services/embed';
 import { chunkText, sha256 } from './chunk';
-
-async function geminiEmbed(text: string): Promise<number[]> {
-  const res = await fetch(
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent',
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-goog-api-key': process.env.GEMINI_API_KEY ?? '' },
-      body: JSON.stringify({
-        model: 'models/gemini-embedding-001',
-        content: { parts: [{ text }] },
-        outputDimensionality: 3072,
-      }),
-    },
-  );
-  if (!res.ok) throw new Error(`gemini embed failed: ${res.status}`);
-  return (await res.json()).embedding.values as number[];
-}
 
 export async function backfillEmbeddings(opts: {
   orgId: string; limit?: number; embedFn?: (text: string) => Promise<number[]>;
 }): Promise<{ embedded: number; skipped: number }> {
-  const embed = opts.embedFn ?? geminiEmbed;
+  const embed = opts.embedFn ?? defaultEmbedder();
   // Latest-version resume docs with text and no embedding rows.
   const docs = (await db.execute(dsql`
     select cd.id, cd.parsed_text
