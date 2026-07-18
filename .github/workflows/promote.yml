@@ -1,0 +1,70 @@
+# .github/workflows/promote.yml
+name: promote
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag to promote (e.g. v1.2.0)"
+        required: true
+      stamps:
+        description: "'all' or comma-separated stamp names from infra/stamps.json"
+        required: true
+        default: "all"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: select
+        run: |
+          MATRIX=$(node -e '
+            const { stamps } = require("./infra/stamps.json");
+            const want = "${{ inputs.stamps }}";
+            const picked = want === "all"
+              ? stamps
+              : stamps.filter(s => want.split(",").map(x => x.trim()).includes(s.name));
+            if (picked.length === 0) { console.error("no stamps matched"); process.exit(1); }
+            console.log("matrix=" + JSON.stringify({ include: picked }));
+          ' >> "$GITHUB_OUTPUT"
+
+  rollout:
+    needs: plan
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 1   # one stamp at a time; a failure stops the fleet rollout
+      fail-fast: true
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      AR: ${{ vars.GCP_AR }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Migrate ${{ matrix.name }}
+        run: |
+          gcloud run jobs update migrate \
+            --project "${{ matrix.project }}" --region "${{ matrix.region }}" \
+            --image "$AR/migrate:${{ inputs.tag }}"
+          gcloud run jobs execute migrate \
+            --project "${{ matrix.project }}" --region "${{ matrix.region }}" --wait
+      - name: Deploy ${{ matrix.name }}
+        run: |
+          gcloud run deploy app \
+            --project "${{ matrix.project }}" --region "${{ matrix.region }}" \
+            --image "$AR/app:${{ inputs.tag }}"
+      - name: Smoke ${{ matrix.name }}
+        run: |
+          URL=$(gcloud run services describe app \
+            --project "${{ matrix.project }}" --region "${{ matrix.region }}" \
+            --format 'value(status.url)')
+          SMOKE_BASE_URL="$URL" npx --yes tsx scripts/smoke.ts
