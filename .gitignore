@@ -52,3 +52,18 @@ scripts/migration/fixtures/
 
 # migration reports (contain real candidate PII — names + JobDiva IDs)
 docs/migration-report_*.md
+
+# terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+!*.auto.tfvars.example
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc

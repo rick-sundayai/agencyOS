@@ -1,0 +1,5 @@
+{
+  "stamps": [
+    { "name": "staging", "project": "agencyos-staging", "region": "us-central1" }
+  ]
+}
