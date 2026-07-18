@@ -54,6 +54,37 @@ button:disabled { opacity: 0.5; cursor: default; }
 .banner-warning { display: flex; gap: 8px; align-items: center; background: var(--warn-soft); border: 1px solid var(--warn); border-radius: var(--r-sm); padding: 8px 12px; margin-bottom: 12px; color: var(--ink-800); }
 .banner-warning button { padding: 2px 10px; }
 
+/* --- cockpit: Health rail --- */
+.hrail { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+.htile { display: block; text-align: left; padding: 14px 16px; border-radius: var(--r-md); border: 1px solid var(--ink-150); background: var(--paper); transition: border-color .14s, box-shadow .14s, transform .1s; }
+.htile:hover { border-color: var(--ink-300); box-shadow: var(--sh-sm); transform: translateY(-1px); }
+/* Monochrome when healthy; colour only when warn/alert — colour is the alarm. */
+.htile-warn { border-color: color-mix(in srgb, var(--warn) 32%, var(--ink-150)); background: color-mix(in srgb, var(--warn-soft) 40%, var(--paper)); }
+.htile-alert { border-color: color-mix(in srgb, var(--bad) 40%, var(--ink-150)); background: color-mix(in srgb, var(--bad-soft) 45%, var(--paper)); }
+.htile-head { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; }
+.htile-label { font-size: 12px; font-weight: 600; color: var(--ink-500); }
+.htile-dot { width: 7px; height: 7px; background: var(--ink-300); }
+.htile-warn .htile-dot { background: var(--warn); }
+.htile-alert .htile-dot { background: var(--bad); }
+.htile-value { display: flex; align-items: baseline; gap: 6px; }
+.htile-value .display { font-size: 25px; line-height: 1; color: var(--ink-900); }
+.htile-warn .htile-value .display { color: var(--warn); }
+.htile-alert .htile-value .display { color: var(--bad); }
+.htile-unit { font-size: 12.5px; font-weight: 600; color: var(--ink-400); }
+.htile-detail { font-size: 12px; color: var(--ink-400); margin-top: 6px; line-height: 1.35; }
+.htile-warn .htile-detail { color: var(--warn); font-weight: 600; }
+.htile-alert .htile-detail { color: var(--bad); font-weight: 600; }
+
+/* Condensed status line */
+.hstrip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.hstrip-healthy { font-size: 13px; font-weight: 600; color: var(--good); }
+.cstrip-pill { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px; border-radius: var(--r-pill); font-size: 12.5px; font-weight: 600; background: var(--ink-100); color: var(--ink-600); border: 1px solid var(--ink-150); white-space: nowrap; }
+.cstrip-pill .dot { width: 6px; height: 6px; }
+.cstrip-warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.cstrip-warn .dot { background: var(--warn); }
+.cstrip-alert { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
+.cstrip-alert .dot { background: var(--bad); }
+
 /* --- cockpit: Decision card (.dcard) --- */
 .dcard {
   position: relative; overflow: hidden;
