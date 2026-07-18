@@ -6,3 +6,8 @@ export function getEnv(key: EnvKey): string {
   if (!value) throw new Error(`Missing required env var: ${key}`);
   return value;
 }
+
+export function poolMax(value: string | undefined): number {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : 10;
+}
