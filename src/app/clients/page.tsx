@@ -10,18 +10,20 @@ export default async function ClientsPage() {
   return (
     <main>
       <h1>Clients</h1>
-      <table className="list">
-        <thead><tr><th>Name</th><th>Status</th><th>Open jobs</th></tr></thead>
-        <tbody>
-          {rows.map((c) => (
-            <tr key={c.id}>
-              <td>{c.name}</td>
-              <td>{c.status}</td>
-              <td>{c.open_jobs}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="record-list">
+        <table className="list">
+          <thead><tr><th>Name</th><th>Status</th><th>Open jobs</th></tr></thead>
+          <tbody>
+            {rows.map((c) => (
+              <tr key={c.id}>
+                <td>{c.name}</td>
+                <td><span className="chip">{c.status}</span></td>
+                <td className="tnum">{c.open_jobs}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       {rows.length === 0 && <p className="empty">No clients yet.</p>}
     </main>
   );
