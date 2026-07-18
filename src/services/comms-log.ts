@@ -61,6 +61,16 @@ export async function getConsentStatus(
   return (row?.status as 'granted' | 'revoked' | undefined) ?? 'unknown';
 }
 
+/** Every recorded consent for a candidate (one row per channel), for the profile view. */
+export async function listCandidateConsents(
+  orgId: string, candidateId: string,
+): Promise<Array<{ channel: string; status: string }>> {
+  return db.select({ channel: consents.channel, status: consents.status })
+    .from(consents)
+    .where(and(eq(consents.org_id, orgId), eq(consents.candidate_id, candidateId)))
+    .orderBy(consents.channel);
+}
+
 export type SystemPromptRow = typeof system_prompts.$inferSelect;
 
 export async function getActivePrompt(

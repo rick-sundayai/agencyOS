@@ -45,9 +45,8 @@ a {
 main { max-width: 1080px; margin: 0 auto; padding: 28px; }
 main > h1 { font-family: var(--font-display); font-size: 24px; font-weight: 700; letter-spacing: -0.02em; color: var(--ink-900); margin-bottom: 18px; }
 .queue { display: flex; flex-direction: column; gap: var(--gap); }
-/* .card / .badge base is still used by the record detail pages (their own reskin ticket). */
-.card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; }
-.badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #eee; }
+.card { border: 1px solid var(--ink-200); border-radius: var(--r-md); padding: 16px; background: var(--paper); }
+.badge { display: inline-flex; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: var(--r-pill); background: var(--ink-100); color: var(--ink-700); }
 button { cursor: pointer; padding: 6px 14px; border-radius: 6px; border: 1px solid #111; background: #111; color: #fff; }
 button.secondary { background: #fff; color: #111; }
 button:disabled { opacity: 0.5; cursor: default; }
@@ -164,11 +163,26 @@ table.list tbody tr:last-child td { border-bottom: none; }
 table.list tbody tr:hover { background: var(--ink-50); }
 table.list td a { color: var(--ink-900); font-weight: 600; }
 table.list td a:hover { color: var(--accent); }
-.board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(180px, 1fr); gap: 12px; overflow-x: auto; }
-.board .col h3 { font-size: 13px; text-transform: uppercase; color: #666; }
-.board .col .card { margin-bottom: 8px; padding: 10px; }
+.board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(200px, 1fr); gap: 12px; overflow-x: auto; padding-bottom: 8px; }
+.board .col { background: var(--ink-50); border: 1px solid var(--ink-150); border-radius: var(--r-md); padding: 10px; }
+.board .col h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-500); margin-bottom: 8px; }
+.board .col .card { margin-bottom: 8px; padding: 10px; background: var(--paper); }
+.board .col .card a { font-weight: 600; color: var(--ink-900); }
+.board .col .card a:hover { color: var(--accent); }
+.board .col .card p { font-size: 12.5px; color: var(--ink-500); margin-top: 4px; }
 .tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.tags span { background: #eef2ff; border-radius: 4px; padding: 2px 8px; font-size: 12px; }
+.tags span { background: var(--accent-soft); color: var(--accent-ink); border-radius: var(--r-sm); padding: 3px 10px; font-size: 12.5px; font-weight: 600; }
+
+/* Record detail: section headers, info line, consent, documents */
+main h2 { font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--ink-800); margin: 24px 0 10px; }
+main > p { color: var(--ink-500); font-size: 13.5px; margin-bottom: 4px; }
+.consent-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.consent-item { display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 11px; border-radius: var(--r-pill); font-size: 12.5px; font-weight: 600; border: 1px solid var(--ink-150); background: var(--paper); color: var(--ink-600); text-transform: capitalize; }
+.consent-item .dot { width: 7px; height: 7px; background: var(--ink-300); }
+.consent-granted { color: var(--good); } .consent-granted .dot { background: var(--good); }
+.consent-revoked { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 30%, var(--ink-200)); } .consent-revoked .dot { background: var(--bad); }
+.doc-list { list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; color: var(--ink-700); }
+.doc-list code { font-family: var(--font-mono); font-size: 12px; color: var(--ink-500); }
 
 /* --- Control Room shell --- */
 .shell { display: flex; min-height: 100vh; width: 100%; }
