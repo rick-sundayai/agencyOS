@@ -1,0 +1,199 @@
+# AgencyOS Compliance Documentation Metadata
+
+# Master version for the compliance documentation suite
+suite_version: "1.0.0"
+suite_status: "Published"
+suite_last_reviewed: "2026-07-18"
+suite_next_review: "2027-07-18"
+suite_owner: "Rick Love (System Administrator)"
+
+# Document set overview
+documents:
+  - id: "policy-workstation-endpoint-security"
+    title: "Workstation & Endpoint Security Policy"
+    path: "01-policies/workstation-endpoint-security.md"
+    version: "1.0.0"
+    status: "Published"
+    last_updated: "2026-07-18"
+    next_review: "2027-07-18"
+    owner: "System Administrator"
+    audience:
+      - "Operators"
+      - "IT Security"
+      - "Auditors"
+    compliance_frameworks:
+      - "SOC 2 Type II"
+    change_summary: "Initial release"
+
+  - id: "policy-data-retention-deletion"
+    title: "Data Retention & Deletion Policy"
+    path: "01-policies/data-retention-deletion.md"
+    version: "1.0.0"
+    status: "Published"
+    last_updated: "2026-07-18"
+    next_review: "2027-07-18"
+    owner: "System Administrator + Legal"
+    audience:
+      - "Operators"
+      - "Legal"
+      - "Clients"
+      - "Auditors"
+    compliance_frameworks:
+      - "GDPR"
+      - "Data Protection"
+      - "SOC 2 Type II"
+    change_summary: "Initial release"
+
+  - id: "arch-system-trust-boundaries"
+    title: "System Architecture & Trust Boundaries"
+    path: "02-architecture/system-architecture-trust-boundaries.md"
+    version: "1.0.0"
+    status: "Published"
+    last_updated: "2026-07-18"
+    next_review: "2027-07-18"
+    owner: "Infrastructure Architect"
+    audience:
+      - "Architects"
+      - "Operators"
+      - "Auditors"
+      - "Clients (technical)"
+    compliance_frameworks:
+      - "SOC 2 Type II"
+      - "GDPR"
+    change_summary: "Initial release"
+
+  - id: "runbook-provisioning-sdlc"
+    title: "Operator Runbook: Provisioning & SDLC"
+    path: "03-operations/operator-runbook-provisioning-sdlc.md"
+    version: "1.0.0"
+    status: "Published"
+    last_updated: "2026-07-18"
+    next_review: "2026-10-18"
+    owner: "DevOps / System Administrator"
+    audience:
+      - "Operators"
+      - "DevOps"
+    compliance_frameworks: []
+    change_summary: "Initial release"
+
+  - id: "runbook-incident-response-monitoring"
+    title: "Incident Response & Monitoring"
+    path: "03-operations/incident-response-monitoring.md"
+    version: "1.0.0"
+    status: "Published"
+    last_updated: "2026-07-18"
+    next_review: "2026-10-18"
+    owner: "On-Call Lead"
+    audience:
+      - "Operators"
+      - "On-Call"
+      - "Auditors"
+    compliance_frameworks:
+      - "SOC 2 Type II"
+    change_summary: "Initial release"
+
+  - id: "runbook-disaster-recovery-backups"
+    title: "Disaster Recovery & Backups"
+    path: "03-operations/disaster-recovery-backups.md"
+    version: "1.0.0"
+    status: "Published"
+    last_updated: "2026-07-18"
+    next_review: "2027-01-18"
+    owner: "System Administrator"
+    audience:
+      - "Operators"
+      - "DRI (Designated Recovery Individual)"
+      - "Auditors"
+    compliance_frameworks:
+      - "SOC 2 Type II"
+    change_summary: "Initial release"
+
+# Compliance frameworks & mapped controls
+compliance_frameworks:
+  soc2_type_ii:
+    name: "SOC 2 Type II"
+    documents:
+      - "policy-workstation-endpoint-security"
+      - "policy-data-retention-deletion"
+      - "arch-system-trust-boundaries"
+      - "runbook-incident-response-monitoring"
+      - "runbook-disaster-recovery-backups"
+
+  gdpr:
+    name: "GDPR (General Data Protection Regulation)"
+    documents:
+      - "policy-data-retention-deletion"
+      - "arch-system-trust-boundaries"
+
+  data_protection:
+    name: "Data Protection & Privacy"
+    documents:
+      - "policy-data-retention-deletion"
+      - "arch-system-trust-boundaries"
+
+# Change log (most recent first)
+changelog:
+  - version: "1.0.0"
+    date: "2026-07-18"
+    author: "Rick Love"
+    changes:
+      - "Initial compliance documentation suite published"
+      - "6 core documents covering policies, architecture, and operations"
+      - "Created README.md and METADATA.yaml for document governance"
+    impact: "Major"
+
+# Review schedule
+review_schedule:
+  - id: "policy-workstation-endpoint-security"
+    frequency: "Annual"
+    due_date: "2027-07-18"
+
+  - id: "policy-data-retention-deletion"
+    frequency: "Annual"
+    due_date: "2027-07-18"
+
+  - id: "arch-system-trust-boundaries"
+    frequency: "Annual"
+    due_date: "2027-07-18"
+
+  - id: "runbook-provisioning-sdlc"
+    frequency: "Quarterly"
+    due_date: "2026-10-18"
+
+  - id: "runbook-incident-response-monitoring"
+    frequency: "Quarterly"
+    due_date: "2026-10-18"
+
+  - id: "runbook-disaster-recovery-backups"
+    frequency: "Bi-annually"
+    due_date: "2027-01-18"
+
+# Governance
+governance:
+  repository: "rick-sundayai/agencyOS"
+  repository_path: "/compliance"
+  version_control: "Git (with commit history)"
+  approval_required: true
+  approval_roles:
+    - "System Administrator"
+    - "Infrastructure Architect"
+    - "Legal (for data policies)"
+  distribution:
+    internal: "GitHub (all operators)"
+    external: "Upon request to specific clients"
+  access_control: "Public (internal repo) or Client-specific (external)"
+
+# Contact & escalation
+contacts:
+  primary_owner: "Rick Love (rick@sundayaiwork.com)"
+  security_contact: "System Administrator"
+  legal_contact: "Legal (Data Retention Policy)"
+  audit_contact: "System Administrator"
+
+# Notes
+notes: |
+  - All dates are in YYYY-MM-DD format (UTC)
+  - Review frequency is measured from last_updated, not next_review
+  - Changes requiring approval must be documented in CHANGELOG.md
+  - Policy violations should be escalated immediately
+  - Operational procedures are in 03-operations/runbooks/ for easy reference
