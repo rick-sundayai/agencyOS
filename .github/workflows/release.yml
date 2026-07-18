@@ -1,0 +1,31 @@
+# .github/workflows/release.yml
+name: release
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      AR: ${{ vars.GCP_AR }}
+      REGION: ${{ vars.GCP_REGION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - run: gcloud auth configure-docker ${REGION}-docker.pkg.dev --quiet
+      - name: Build and push versioned images
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          docker build --target runtime -t "$AR/app:$TAG" .
+          docker build --target migrate -t "$AR/migrate:$TAG" .
+          docker push "$AR/app:$TAG"
+          docker push "$AR/migrate:$TAG"
