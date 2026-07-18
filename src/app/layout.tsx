@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { Schibsted_Grotesk, Hanken_Grotesk, Spline_Sans_Mono } from "next/font/google";
 import { auth, signOut } from "../lib/auth";
 import { listQueue } from "../services/decision-store";
+import { listRoster } from "../services/agent-roster";
 import { ThemeToggle, THEME_STORAGE_KEY, DEFAULT_THEME } from "../components/ThemeToggle";
 import { SidebarNav } from "../components/SidebarNav";
+import { AgentRoster } from "../components/AgentRoster";
 import "./tokens.css";
 import "./globals.css";
 
@@ -47,6 +49,7 @@ export default async function RootLayout({
   // Server-rendered seed for the Cockpit nav badge — the count of Decisions in the
   // operator's queue at load. SidebarNav then keeps it live off the Cockpit stream.
   const pendingCount = session ? (await listQueue(session.user.org_id)).length : 0;
+  const roster = session ? await listRoster(session.user.org_id) : null;
   const accountName = session?.user.name ?? session?.user.email ?? "Operator";
   const accountInitials = initials(accountName);
 
@@ -71,6 +74,7 @@ export default async function RootLayout({
               </div>
               <SidebarNav pendingCount={pendingCount} />
               <div className="sidebar-spacer" />
+              {roster && <AgentRoster roster={roster} />}
               <div className="sidebar-footer">
                 <div className="account">
                   <span className="avatar" aria-hidden="true">{accountInitials}</span>

@@ -185,6 +185,20 @@ table.list th, table.list td { text-align: left; padding: 8px 12px; border-botto
 
 .sidebar-spacer { flex: 1; }
 
+/* Agent roster — a stalled Agent is visible at a glance */
+.roster { margin: 0 12px 8px; padding: 12px; border-radius: var(--r-md); background: var(--ink-50); border: 1px solid var(--ink-150); }
+.roster-head { font-size: 10.5px; font-weight: 700; color: var(--ink-500); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 10px; }
+.roster-online { color: var(--ink-400); }
+.roster-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.roster-row { display: flex; align-items: center; gap: 9px; }
+.roster-name { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; color: var(--ink-700); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.roster-row.stalled .roster-name { color: var(--bad); }
+.roster-dot { width: 7px; height: 7px; flex-shrink: 0; }
+.roster-working { background: var(--working); }
+.roster-review { background: var(--review); }
+.roster-idle { background: var(--idle); }
+.roster-stalled { background: var(--bad); }
+
 /* Account / session footer */
 .sidebar-footer { border-top: 1px solid var(--ink-150); padding: 12px; display: flex; flex-direction: column; gap: 10px; }
 .account { display: flex; align-items: center; gap: 10px; min-width: 0; }
