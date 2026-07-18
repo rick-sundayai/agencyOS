@@ -6,7 +6,7 @@ import { getEnv } from '../../src/lib/env';
 async function main() {
   const sql = postgres(getEnv('DATABASE_URL'), { max: 1 });
   const orgId = (await sql`select id from orgs where name = 'Sunday AI Work'`)[0].id as string;
-  const one = async (q: ReturnType<typeof sql>) => Number((await q)[0].n);
+  const one = async (q: ReturnType<typeof sql>) => Number(((await q)[0] as { n: number })!.n);
 
   const candidates = await one(sql`select count(*)::int as n from candidates where org_id=${orgId} and jobdiva_id is not null`);
   const jobs = await one(sql`select count(*)::int as n from job_orders where org_id=${orgId} and jobdiva_id is not null`);
