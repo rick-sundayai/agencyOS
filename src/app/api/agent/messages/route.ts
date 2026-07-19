@@ -3,8 +3,8 @@ import { requireAgentKey } from '../../../../lib/agent-auth';
 import { logMessage } from '../../../../services/comms-log';
 
 export async function POST(req: Request): Promise<Response> {
-  const denied = requireAgentKey(req);
-  if (denied) return denied;
+  const auth = await requireAgentKey(req);
+  if (auth instanceof Response) return auth;
   try {
     return Response.json(await logMessage(await req.json()), { status: 201 });
   } catch (err) {

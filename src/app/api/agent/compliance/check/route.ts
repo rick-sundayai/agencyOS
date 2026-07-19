@@ -3,8 +3,8 @@ import { requireAgentKey } from '../../../../../lib/agent-auth';
 import { checkCompliance } from '../../../../../services/compliance';
 
 export async function POST(req: Request): Promise<Response> {
-  const denied = requireAgentKey(req);
-  if (denied) return denied;
+  const auth = await requireAgentKey(req);
+  if (auth instanceof Response) return auth;
   try {
     return Response.json(await checkCompliance(await req.json()));
   } catch (err) {

@@ -3,8 +3,8 @@ import { requireAgentKey } from '../../../../lib/agent-auth';
 import { insertAgentRun } from '../../../../services/agent-runs';
 
 export async function POST(req: Request): Promise<Response> {
-  const denied = requireAgentKey(req);
-  if (denied) return denied;
+  const auth = await requireAgentKey(req);
+  if (auth instanceof Response) return auth;
   try {
     const run = await insertAgentRun(await req.json());
     return Response.json({ run }, { status: 201 });

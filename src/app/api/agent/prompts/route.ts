@@ -2,8 +2,8 @@ import { requireAgentKey } from '../../../../lib/agent-auth';
 import { getActivePrompt } from '../../../../services/comms-log';
 
 export async function GET(req: Request): Promise<Response> {
-  const denied = requireAgentKey(req);
-  if (denied) return denied;
+  const auth = await requireAgentKey(req);
+  if (auth instanceof Response) return auth;
   const url = new URL(req.url);
   const orgId = url.searchParams.get('org_id');
   const agent = url.searchParams.get('agent');

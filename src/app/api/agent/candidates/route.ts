@@ -3,8 +3,8 @@ import { requireAgentKey } from '../../../../lib/agent-auth';
 import { ingestCandidate } from '../../../../services/ingest';
 
 export async function POST(req: Request): Promise<Response> {
-  const denied = requireAgentKey(req);
-  if (denied) return denied;
+  const auth = await requireAgentKey(req);
+  if (auth instanceof Response) return auth;
   try {
     return Response.json(await ingestCandidate(await req.json()), { status: 201 });
   } catch (err) {

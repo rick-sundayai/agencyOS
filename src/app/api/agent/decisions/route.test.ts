@@ -1,14 +1,12 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import postgres from 'postgres';
-import { getEnv } from '../../../../lib/env';
+import { seedTestAgent } from '../../../../test-support/seed-agent';
 import { POST, GET } from './route';
 
-const sql = postgres(getEnv('DATABASE_URL'), { max: 1 });
 let orgId: string;
-const KEY = getEnv('AGENT_API_KEY');
+let KEY: string;
 
 beforeAll(async () => {
-  orgId = (await sql`select id from orgs where name = 'Sunday AI Work'`)[0].id;
+  ({ orgId, key: KEY } = await seedTestAgent());
 });
 
 function post(body: unknown, key = KEY) {

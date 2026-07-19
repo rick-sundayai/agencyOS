@@ -9,8 +9,8 @@ const SearchSchema = z.strictObject({
 });
 
 export async function POST(req: Request): Promise<Response> {
-  const denied = requireAgentKey(req);
-  if (denied) return denied;
+  const auth = await requireAgentKey(req);
+  if (auth instanceof Response) return auth;
   try {
     const p = SearchSchema.parse(await req.json());
     const results = await searchCandidatesByEmbedding(p.org_id, p.query_embedding, p.limit);

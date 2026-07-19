@@ -1,17 +1,18 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import postgres from 'postgres';
 import { getEnv } from '../../../../../lib/env';
+import { seedTestAgent } from '../../../../../test-support/seed-agent';
 import { proposeDecision } from '../../../../../services/decision-store';
 import { GET } from './route';
 import { POST as TRANSITION } from '../[id]/transition/route';
 import { POST as RUNS } from '../../runs/route';
 
 const sql = postgres(getEnv('DATABASE_URL'), { max: 1 });
-const KEY = getEnv('AGENT_API_KEY');
+let KEY: string;
 let orgId: string;
 
 beforeAll(async () => {
-  orgId = (await sql`select id from orgs where name = 'Sunday AI Work'`)[0].id;
+  ({ orgId, key: KEY } = await seedTestAgent());
 });
 
 const proposal = () => ({
