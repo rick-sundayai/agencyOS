@@ -25,6 +25,7 @@ const NAV: NavItem[] = [
   { href: '/clients', label: 'Clients', icon: buildingIcon() },
   { href: '/agents', label: 'Agents', icon: sparkleIcon() },
   { href: '/pipeline', label: 'Pipeline', icon: pipelineIcon() },
+  { href: '/analytics', label: 'Analytics', icon: analyticsIcon() },
 ];
 
 /**
@@ -94,3 +95,4 @@ function usersIcon() { return svg(<><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0
 function buildingIcon() { return svg(<><rect x="4" y="2" width="16" height="20" rx="2" /><path d="M9 22v-4h6v4M9 6h.01M15 6h.01M9 10h.01M15 10h.01M9 14h.01M15 14h.01" /></>); }
 function sparkleIcon() { return svg(<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z" />); }
 function pipelineIcon() { return svg(<><rect x="3" y="4" width="5" height="16" rx="1" /><rect x="10" y="4" width="5" height="11" rx="1" /><rect x="17" y="4" width="4" height="7" rx="1" /></>); }
+function analyticsIcon() { return svg(<><path d="M3 3v18h18" /><path d="M18 17V9M13 17V5M8 17v-4" /></>); }
