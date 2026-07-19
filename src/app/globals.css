@@ -326,3 +326,15 @@ main > p { color: var(--ink-500); font-size: 13.5px; margin-bottom: 4px; }
 .sidebar-actions { display: flex; align-items: center; gap: 8px; }
 .sidebar-actions form { flex: 1; }
 .sidebar-actions form .btn { width: 100%; }
+
+/* --- cockpit: Analytics --- */
+.analytics-kpis { margin-bottom: 18px; }
+.analytics-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+.analytics-panel-wide { grid-column: 1 / -1; }
+.analytics-panel h2 { font-size: 13px; font-weight: 700; color: var(--ink-500); text-transform: uppercase; letter-spacing: .02em; margin-bottom: 12px; }
+.analytics-barlist { display: flex; flex-direction: column; gap: 10px; list-style: none; }
+.analytics-barlist li { display: grid; grid-template-columns: 140px 1fr auto; align-items: center; gap: 10px; }
+.analytics-barlabel { font-size: 13px; color: var(--ink-700); }
+.analytics-bar { height: 8px; border-radius: var(--r-pill); background: var(--ink-100); overflow: hidden; }
+.analytics-bar-fill { display: block; height: 100%; background: var(--accent); border-radius: var(--r-pill); }
+.analytics-barcount { font-size: 12.5px; font-weight: 600; color: var(--ink-600); min-width: 70px; text-align: right; }
