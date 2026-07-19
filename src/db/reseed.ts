@@ -56,6 +56,15 @@ const SKILLS = [
 ];
 const MODELS = ['gemini-2.5-flash', 'gpt-4o-mini', 'claude-haiku-4-5'];
 const PROMPT_VERSIONS = ['v2.2.0', 'v2.3.0'];
+const WORKFLOWS = [
+  'source.shortlist', 'screen.score_resume', 'comms.candidate_outreach',
+  'data.enrich_record', 'interview.propose_slots', 'client.chase_feedback',
+];
+// The live status each persona should display (drives the newest run's shape).
+const CURRENT_STATUS: Record<string, 'working' | 'stalled' | 'review' | 'idle'> = {
+  Scout: 'working', Sift: 'working', Echo: 'review', Atlas: 'idle',
+  Envoy: 'working', Sentry: 'idle', Trace: 'stalled',
+};
 // Weighted so most candidates sit in early stages, a few reach offer/placed.
 const STAGE_WEIGHTS: Array<[string, number]> = [
   ['sourced', 30], ['screened', 22], ['submitted', 16], ['interviewing', 12],
@@ -196,9 +205,53 @@ async function reseed() {
       insert into scores ${sql(scoreRows,
         'org_id', 'job_order_id', 'candidate_id', 'prompt_version', 'model', 'fit_rating', 'weighted_score')}`;
 
+    // --- 7. Agent runs — 7d of finished history (throughput) + one current run per
+    // persona whose shape yields its CURRENT_STATUS. The newest run per agent wins,
+    // so history always sits >1h back and the current run in the last ~40 min. ---
+    const min = 60_000;
+    const runRows: Array<Record<string, unknown>> = [];
+    const base = (name: string) => ({
+      org_id: orgId, agent: name, workflow: pick(WORKFLOWS),
+      model: pick(MODELS), prompt_version: pick(PROMPT_VERSIONS),
+      tokens_in: rand(500, 4000), tokens_out: rand(100, 1500),
+    });
+    for (const p of AGENT_PERSONAS) {
+      // Finished history: 6–20 runs between 1h and 7d ago, ~12% failed.
+      for (let i = 0; i < rand(6, 20); i++) {
+        const startedAt = new Date(Date.now() - rand(60, 7 * 24 * 60) * min);
+        runRows.push({
+          ...base(p.name),
+          status: Math.random() < 0.12 ? 'failed' : 'succeeded',
+          started_at: startedAt,
+          finished_at: new Date(startedAt.getTime() + rand(30, 600) * 1000),
+        });
+      }
+      // Current run — the newest, sets the displayed status.
+      const now = Date.now();
+      const cur = CURRENT_STATUS[p.name] ?? 'idle';
+      if (cur === 'working') {
+        runRows.push({ ...base(p.name), status: 'running', started_at: new Date(now - rand(1, 6) * min), finished_at: null });
+      } else if (cur === 'stalled') {
+        runRows.push({ ...base(p.name), status: 'running', started_at: new Date(now - rand(15, 40) * min), finished_at: null });
+      } else {
+        const startedAt = new Date(now - rand(2, 9) * min);
+        runRows.push({
+          ...base(p.name),
+          status: cur === 'review' ? 'failed' : 'succeeded',
+          started_at: startedAt,
+          finished_at: new Date(startedAt.getTime() + rand(30, 300) * 1000),
+        });
+      }
+    }
+    await sql`
+      insert into agent_runs ${sql(runRows,
+        'org_id', 'agent', 'workflow', 'model', 'prompt_version',
+        'tokens_in', 'tokens_out', 'status', 'started_at', 'finished_at')}`;
+
     console.log(
       `Reseeded org ${orgId}: ${clientIds.length} clients, ${jobIds.length} jobs, ` +
-      `${candidateIds.length} candidates, ${appRows.length} applications, ${scoreRows.length} scores`,
+      `${candidateIds.length} candidates, ${appRows.length} applications, ` +
+      `${scoreRows.length} scores, ${runRows.length} agent runs`,
     );
   } finally {
     await sql.end();
