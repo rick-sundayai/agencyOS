@@ -360,6 +360,9 @@ main > p { color: var(--ink-500); font-size: 13.5px; margin-bottom: 4px; }
   transition: box-shadow .15s, border-color .15s, transform .1s;
 }
 .rec-card:hover { box-shadow: var(--sh-md); border-color: var(--ink-300); transform: translateY(-1px); }
+/* Non-clickable variant (e.g. Clients, which has no detail route) — no hover lift. */
+.rec-card-static { cursor: default; }
+.rec-card-static:hover { box-shadow: var(--sh-xs); border-color: var(--ink-200); transform: none; }
 .rec-card-head { display: flex; align-items: flex-start; gap: 12px; }
 .rec-avatar {
   width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
@@ -418,7 +421,7 @@ main > p { color: var(--ink-500); font-size: 13.5px; margin-bottom: 4px; }
 
 /* Status chip — neutral by default; filled/placed read positive, closed/lost muted. */
 .status-chip { display: inline-flex; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: var(--r-pill); background: var(--ink-100); color: var(--ink-600); text-transform: capitalize; }
-.status-chip.status-open { color: var(--good); background: var(--good-soft); }
+.status-chip.status-open, .status-chip.status-active { color: var(--good); background: var(--good-soft); }
 .status-chip.status-filled, .status-chip.status-placed { color: var(--accent-ink); background: var(--accent-soft); }
 
 @media (max-width: 640px) {
