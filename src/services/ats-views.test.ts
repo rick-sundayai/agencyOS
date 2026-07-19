@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { makeAtsFixtures, type AtsFixtures } from '../test/fixtures';
 import {
   listJobOrders, getJobOrderPipeline, listCandidates, getCandidateProfile, listClients,
+  getPipelineBoard, PIPELINE_STAGES,
 } from './ats-views';
 
 // Valid uuid that belongs to no org — proves org isolation.
@@ -62,6 +63,32 @@ describe('getCandidateProfile', () => {
 
   it('returns null for another org (isolation)', async () => {
     expect(await getCandidateProfile(OTHER_ORG, f.cand1)).toBeNull();
+  });
+});
+
+describe('getPipelineBoard', () => {
+  it('returns one column per canonical stage, in order', async () => {
+    const board = await getPipelineBoard(f.orgId);
+    expect(board.map((c) => c.stage)).toEqual([...PIPELINE_STAGES]);
+  });
+
+  it('groups applications by stage with candidate name and job order title', async () => {
+    const board = await getPipelineBoard(f.orgId);
+    const sourced = board.find((c) => c.stage === 'sourced')!;
+    const card = sourced.cards.find((c) => c.candidate_name === `Cand A ${f.tag}`);
+    expect(card).toBeDefined();
+    expect(card!.job_title).toBe(`Job ${f.tag}`);
+  });
+
+  it('renders an empty column for a stage with no applications', async () => {
+    const board = await getPipelineBoard(f.orgId);
+    const placed = board.find((c) => c.stage === 'placed')!;
+    expect(placed.cards).toEqual([]);
+  });
+
+  it('returns only empty columns for another org (isolation)', async () => {
+    const board = await getPipelineBoard(OTHER_ORG);
+    expect(board.every((c) => c.cards.length === 0)).toBe(true);
   });
 });
 

@@ -86,6 +86,40 @@ export async function getJobOrderPipeline(orgId: string, jobOrderId: string) {
   };
 }
 
+export type PipelineCard = {
+  application_id: string;
+  candidate_name: string;
+  job_title: string;
+};
+export type PipelineColumn = { stage: PipelineStage; cards: PipelineCard[] };
+
+/** Org-scoped Applications grouped by canonical Stage, one column per PIPELINE_STAGES entry. */
+export async function getPipelineBoard(orgId: string): Promise<PipelineColumn[]> {
+  const rows = await db
+    .select({
+      application_id: applications.id,
+      stage: applications.stage,
+      candidate_name: candidates.full_name,
+      job_title: job_orders.title,
+    })
+    .from(applications)
+    .innerJoin(candidates, eq(applications.candidate_id, candidates.id))
+    .innerJoin(job_orders, eq(applications.job_order_id, job_orders.id))
+    .where(eq(applications.org_id, orgId))
+    // Most-recently-updated first within each column once grouped below.
+    .orderBy(desc(applications.updated_at));
+
+  const byStage = new Map<PipelineStage, PipelineCard[]>(PIPELINE_STAGES.map((s) => [s, []]));
+  for (const r of rows) {
+    byStage.get(r.stage as PipelineStage)?.push({
+      application_id: r.application_id,
+      candidate_name: r.candidate_name,
+      job_title: r.job_title,
+    });
+  }
+  return PIPELINE_STAGES.map((stage) => ({ stage, cards: byStage.get(stage) ?? [] }));
+}
+
 export async function listCandidates(orgId: string) {
   return db
     .select()

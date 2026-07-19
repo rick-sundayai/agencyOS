@@ -46,6 +46,17 @@
   --idle:    #9a9faf;
   --review:  #c6820a;
 
+  /* --- Pipeline stage — aliases of already dual-themed semantic tokens, so no
+     dark-theme authoring is needed here; placed/rejected reuse good/bad so
+     terminal stages read as success/failure rather than another accent hue. --- */
+  --stage-sourced:      var(--info);
+  --stage-screened:     var(--accent);
+  --stage-submitted:    var(--accent-ink);
+  --stage-interviewing: var(--warn);
+  --stage-offer:        var(--accent-press);
+  --stage-placed:       var(--good);
+  --stage-rejected:     var(--bad);
+
   /* --- Radii --- */
   --r-xs: 6px;
   --r-sm: 9px;
