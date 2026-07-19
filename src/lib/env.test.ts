@@ -2,16 +2,16 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { getEnv, poolMax } from './env';
 
 describe('getEnv', () => {
-  afterEach(() => { delete process.env.AGENT_API_KEY; });
+  afterEach(() => { delete process.env.AUTH_SECRET; });
 
   it('returns the value when set', () => {
-    process.env.AGENT_API_KEY = 'secret';
-    expect(getEnv('AGENT_API_KEY')).toBe('secret');
+    process.env.AUTH_SECRET = 'secret';
+    expect(getEnv('AUTH_SECRET')).toBe('secret');
   });
 
   it('throws a named error when missing', () => {
-    delete process.env.AGENT_API_KEY;
-    expect(() => getEnv('AGENT_API_KEY')).toThrow('Missing required env var: AGENT_API_KEY');
+    delete process.env.AUTH_SECRET;
+    expect(() => getEnv('AUTH_SECRET')).toThrow('Missing required env var: AUTH_SECRET');
   });
 });
 
