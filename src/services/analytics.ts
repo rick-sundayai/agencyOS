@@ -84,6 +84,15 @@ export function computeAnalytics(input: AnalyticsInput, now: Date = new Date()):
         }, 0) / filledPlacements.length,
       );
 
+  const sourceCounts = new Map<string, number>();
+  for (const c of input.candidates) {
+    const source = c.source && c.source.trim() !== '' ? c.source : 'Unknown';
+    sourceCounts.set(source, (sourceCounts.get(source) ?? 0) + 1);
+  }
+  const candidateSources = [...sourceCounts.entries()]
+    .map(([source, count]) => ({ source, count }))
+    .sort((a, b) => b.count - a.count || a.source.localeCompare(b.source));
+
   return {
     decisionsPerDay,
     autoRunRate,
@@ -91,7 +100,7 @@ export function computeAnalytics(input: AnalyticsInput, now: Date = new Date()):
     stageDistribution,
     placementsPerMonth,
     timeToFillDays,
-    candidateSources: [],
+    candidateSources,
     agentPerformance: throughputFromRuns(input.agentRuns),
   };
 }

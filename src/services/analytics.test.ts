@@ -164,3 +164,46 @@ describe('computeAnalytics — time to fill', () => {
     expect(a.timeToFillDays).toBe(10);
   });
 });
+
+describe('computeAnalytics — candidate sources', () => {
+  it('is empty with no candidates', () => {
+    const a = computeAnalytics(emptyInput(), NOW);
+    expect(a.candidateSources).toEqual([]);
+  });
+
+  it('groups candidates by source, sorted by count descending', () => {
+    const input = {
+      ...emptyInput(),
+      candidates: [
+        { source: 'referral' }, { source: 'referral' }, { source: 'linkedin' },
+      ],
+    };
+    const a = computeAnalytics(input, NOW);
+    expect(a.candidateSources).toEqual([
+      { source: 'referral', count: 2 },
+      { source: 'linkedin', count: 1 },
+    ]);
+  });
+
+  it('buckets null or blank source as Unknown', () => {
+    const input = { ...emptyInput(), candidates: [{ source: null }, { source: '' }, { source: 'linkedin' }] };
+    const a = computeAnalytics(input, NOW);
+    expect(a.candidateSources).toEqual([
+      { source: 'Unknown', count: 2 },
+      { source: 'linkedin', count: 1 },
+    ]);
+  });
+});
+
+describe('computeAnalytics — agent performance', () => {
+  it('delegates to throughputFromRuns', () => {
+    const input = {
+      ...emptyInput(),
+      agentRuns: [
+        { agent: 'screening', status: 'succeeded', started_at: daysAgo(1), finished_at: daysAgo(1) },
+      ],
+    };
+    const a = computeAnalytics(input, NOW);
+    expect(a.agentPerformance).toEqual([{ agent: 'screening', completed: 1, failed: 0 }]);
+  });
+});
