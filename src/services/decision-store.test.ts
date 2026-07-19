@@ -59,7 +59,7 @@ describe('proposeDecision', () => {
 describe('transitionDecision', () => {
   it('approves a tier 3 decision and stamps decided_at', async () => {
     const d = await proposeDecision(proposal('client.submit_candidate'));
-    const approved = await transitionDecision(d.id, 'approved', 'user-1');
+    const approved = await transitionDecision(d.id, 'approved', 'user-1', orgId);
     expect(approved.state).toBe('approved');
     expect(approved.approved_by).toBe('user-1');
     expect(approved.decided_at).not.toBeNull();
@@ -67,13 +67,13 @@ describe('transitionDecision', () => {
 
   it('rejects an illegal transition', async () => {
     const d = await proposeDecision(proposal('client.submit_candidate'));
-    await expect(transitionDecision(d.id, 'executed', 'user-1'))
+    await expect(transitionDecision(d.id, 'executed', 'user-1', orgId))
       .rejects.toThrow('Invalid transition proposed → executed');
   });
 
   it('cancelling a proposed (never-approved) decision backfills decided_at and stamps cancelled_by', async () => {
     const d = await proposeDecision(proposal('client.submit_candidate'));
-    const cancelled = await transitionDecision(d.id, 'cancelled', 'user-1');
+    const cancelled = await transitionDecision(d.id, 'cancelled', 'user-1', orgId);
     expect(cancelled.cancelled_by).toBe('user-1');
     expect(cancelled.cancelled_at).not.toBeNull();
     expect(cancelled.decided_at).not.toBeNull();
@@ -83,7 +83,7 @@ describe('transitionDecision', () => {
     const d = await proposeDecision(proposal('comms.candidate_outreach')); // tier 2, auto-approved
     const originalDecidedAt = d.decided_at;
     expect(originalDecidedAt).not.toBeNull();
-    const cancelled = await transitionDecision(d.id, 'cancelled', 'user-2');
+    const cancelled = await transitionDecision(d.id, 'cancelled', 'user-2', orgId);
     expect(cancelled.decided_at).toEqual(originalDecidedAt);
     expect(cancelled.approved_by).toBe('policy');
     expect(cancelled.cancelled_by).toBe('user-2');
@@ -98,8 +98,8 @@ describe('transitionDecision', () => {
     // both selects land before either update, which is what actually exercises the CAS guard.
     await Promise.all([getDecision(d.id), getDecision(d.id)]);
     const [a, b] = await Promise.allSettled([
-      transitionDecision(d.id, 'approved', 'user-1'),
-      transitionDecision(d.id, 'cancelled', 'user-2'),
+      transitionDecision(d.id, 'approved', 'user-1', orgId),
+      transitionDecision(d.id, 'cancelled', 'user-2', orgId),
     ]);
     const results = [a, b];
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
@@ -154,13 +154,13 @@ describe('listExecutable', () => {
 describe('transitionDecision extras', () => {
   it('records error on failed and outcome on executed', async () => {
     const a = await proposeDecision(proposal('screen.score_resume')); // approved
-    const executing = await transitionDecision(a.id, 'executing', 'screening');
-    const failed = await transitionDecision(executing.id, 'failed', 'screening', { error: 'boom' });
+    const executing = await transitionDecision(a.id, 'executing', 'screening', orgId);
+    const failed = await transitionDecision(executing.id, 'failed', 'screening', orgId, { error: 'boom' });
     expect(failed.error).toBe('boom');
 
     const b = await proposeDecision(proposal('screen.score_resume'));
-    await transitionDecision(b.id, 'executing', 'screening');
-    const done = await transitionDecision(b.id, 'executed', 'screening', { outcome: { ok: true } });
+    await transitionDecision(b.id, 'executing', 'screening', orgId);
+    const done = await transitionDecision(b.id, 'executed', 'screening', orgId, { outcome: { ok: true } });
     expect(done.outcome).toEqual({ ok: true });
     expect(done.executed_at).not.toBeNull();
   });
@@ -168,8 +168,8 @@ describe('transitionDecision extras', () => {
   it('still 409s on a lost compare-and-swap race (ADR-0003 must survive the extras change)', async () => {
     const d = await proposeDecision(proposal('comms.candidate_outreach')); // approved
     const [a, b] = await Promise.allSettled([
-      transitionDecision(d.id, 'executing', 'communication'),
-      transitionDecision(d.id, 'cancelled', 'user-1'),
+      transitionDecision(d.id, 'executing', 'communication', orgId),
+      transitionDecision(d.id, 'cancelled', 'user-1', orgId),
     ]);
     const outcomes = [a, b];
     expect(outcomes.filter((o) => o.status === 'fulfilled')).toHaveLength(1);

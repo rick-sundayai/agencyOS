@@ -18,7 +18,7 @@ export async function POST(
   const { id } = await ctx.params;
   try {
     const body = TransitionBodySchema.parse(await req.json());
-    const decision = await transitionDecision(id, body.to, auth.name, {
+    const decision = await transitionDecision(id, body.to, auth.name, auth.org_id, {
       error: body.error, outcome: body.outcome,
     });
     return Response.json({ decision });

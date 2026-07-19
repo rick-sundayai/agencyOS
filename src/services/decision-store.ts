@@ -48,9 +48,11 @@ export async function transitionDecision(
   id: string,
   to: DecisionState,
   actor: string,
+  orgId: string,
   extras: { error?: string | null; outcome?: unknown } = {},
 ): Promise<DecisionRow> {
-  const [current] = await db.select().from(decisions).where(eq(decisions.id, id));
+  const [current] = await db.select().from(decisions)
+    .where(and(eq(decisions.id, id), eq(decisions.org_id, orgId)));
   if (!current) throw new Error(`Decision not found: ${id}`);
   const from = current.state as DecisionState;
   if (!canTransition(from, to)) throw new Error(`Invalid transition ${from} → ${to}`);
@@ -70,12 +72,12 @@ export async function transitionDecision(
     if (extras.outcome !== undefined) patch.outcome = extras.outcome;
   }
 
-  // Compare-and-swap on state: guards against a concurrent transition (e.g. Plan 1c's
-  // executor and a human Undo click racing on the same row) silently overwriting each
-  // other. Whichever caller loses the race gets a thrown error instead of a lost update
-  // (ADR-0003).
+  // Compare-and-swap on state (and org, for the same reason): guards against a concurrent
+  // transition (e.g. Plan 1c's executor and a human Undo click racing on the same row)
+  // silently overwriting each other. Whichever caller loses the race gets a thrown error
+  // instead of a lost update (ADR-0003).
   const [row] = await db.update(decisions).set(patch)
-    .where(and(eq(decisions.id, id), eq(decisions.state, from)))
+    .where(and(eq(decisions.id, id), eq(decisions.org_id, orgId), eq(decisions.state, from)))
     .returning();
   if (!row) {
     throw new Error(`Decision ${id} was already transitioned by another process (expected state ${from})`);
