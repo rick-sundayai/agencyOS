@@ -2,16 +2,18 @@
 
 ## Problem
 
-On the Cockpit page (`/`), two client components each open their own `EventSource('/api/cockpit/stream')`:
+On the Cockpit page (`/`), three client components each open their own `EventSource('/api/cockpit/stream')`:
 
-- `useLivePendingCount` — a hook currently defined inline in [SidebarNav.tsx](../../../src/components/SidebarNav.tsx), which renders in `layout.tsx` on every authenticated page (not just `/`).
+- `useLivePendingCount` ([useLivePendingCount.ts](../../../src/components/useLivePendingCount.ts)) — called by both `SidebarNav.tsx` and `TopBar.tsx`, each call creating its own connection. Both components render in `layout.tsx` on every authenticated page (not just `/`).
 - `QueueLive` ([QueueLive.tsx](../../../src/components/QueueLive.tsx)) — mounted only on the Cockpit page (`src/app/page.tsx`).
 
-Both parse the same `{ queue: QueueDecision[] }` payload for their own purposes (pending count vs. full queue state + connection banner). That's 2 concurrent long-lived SSE connections per tab against the same endpoint on `/` (not 3 — there is no separate `useLivePendingCount.ts` file and no `TopBar.tsx` in this codebase; `useLivePendingCount` lives inline in `SidebarNav.tsx`). Still worth consolidating against the browser's per-origin connection cap (6, shared across all tabs to that origin).
+(At the time this spec was first drafted, `TopBar.tsx` didn't exist yet on this branch — it landed on `main` via a concurrent PR that also extracted `useLivePendingCount` into its own file. This spec was updated after merging that work in, so the 3-connection count now matches the original problem statement exactly.)
+
+All three parse the same `{ queue: QueueDecision[] }` payload for their own purposes (pending count vs. full queue state + connection banner). That's 3 concurrent long-lived SSE connections per tab against the same endpoint on `/`, against the browser's per-origin connection cap (6, shared across all tabs to that origin).
 
 ## Approach
 
-A module-level singleton (`src/components/useCockpitStream.ts`) owns a single `EventSource`, created lazily on the first subscriber and closed when the last subscriber unsubscribes (ref-counted via a `Set` of listeners). No React Context/provider — subscribers call a plain `subscribeCockpitStream(listener)` function from a `useEffect`, so it works from any client component regardless of position in the tree.
+A module-level singleton (`src/components/cockpit-stream.ts`) owns a single `EventSource`, created lazily on the first subscriber and closed when the last subscriber unsubscribes (ref-counted via a `Set` of listeners). No React Context/provider — subscribers call a plain `subscribeCockpitStream(listener)` function from a `useEffect`, so it works from any client component regardless of position in the tree.
 
 ```ts
 type StreamState = { queue: QueueDecision[]; connected: boolean };
@@ -57,7 +59,7 @@ function notify() {
 
 ### `useLivePendingCount`
 
-Moves out of `SidebarNav.tsx` into `useCockpitStream.ts`, rebuilt on the shared primitive:
+Stays in its own file (`useLivePendingCount.ts`), rebuilt on the shared primitive from `cockpit-stream.ts` instead of opening its own `EventSource`:
 
 ```ts
 export function useLivePendingCount(initial: number): number {
@@ -86,32 +88,34 @@ Behavior preserved: `queue` still starts from the `initial` prop (server snapsho
 
 ```
 Cockpit page mount
-  SidebarNav  --useEffect--> subscribeCockpitStream(listenerA)  -\
-                                                                    -> singleton creates ONE EventSource
-  QueueLive   --useEffect--> subscribeCockpitStream(listenerB)  -/       on first subscriber
+  SidebarNav  --useLivePendingCount--> subscribeCockpitStream(listenerA)  -\
+  TopBar      --useLivePendingCount--> subscribeCockpitStream(listenerB)   -> singleton creates ONE
+  QueueLive   --useEffect-----------> subscribeCockpitStream(listenerC)  -/    EventSource on first subscriber
 
 /api/cockpit/stream pushes `data: {queue}\n\n` (initial push + every 5s)
   -> singleton's onmessage updates cachedQueue, calls notify()
-  -> listenerA updates pending count
-  -> listenerB updates queue + connected
+  -> listenerA updates SidebarNav's pending count
+  -> listenerB updates TopBar's pending count
+  -> listenerC updates QueueLive's queue + connected
 
-Either component unmounts -> unsubscribe -> listener removed from Set
-Last component unmounts    -> Set empty -> EventSource closed, cache reset
+Any component unmounts -> unsubscribe -> listener removed from Set
+Last component unmounts -> Set empty -> EventSource closed, cache reset
 ```
 
 ## Testing
 
-- **`src/components/useCockpitStream.test.ts`** (new): unit-tests the singleton primitive directly —
+- **`src/components/cockpit-stream.test.ts`** (new): unit-tests the singleton primitive directly —
   - only one `EventSource` is created across multiple `subscribeCockpitStream` calls (fan-out)
   - a single `onmessage` event updates every subscriber
   - a late subscriber (subscribing after a message has already arrived) is seeded immediately with the cached state, not left waiting for the next message
   - the `EventSource` is closed when the last subscriber unsubscribes, and a fresh one is created if a new subscriber arrives afterward
   - `onerror` marks `connected: false` for all subscribers without clearing `cachedQueue`; `onopen` restores `connected: true`
-- **`src/components/useLivePendingCount.test.ts`** (new, since the hook moves to its own module): seeds from `initial`, updates on message, holds last value on error.
+- **`src/components/useLivePendingCount.test.ts`** (existing, from the concurrent `TopBar` PR): seeds from `initial`, updates on message, holds last value on error — assertions unchanged, still pass against the shared primitive.
+- **`src/components/TopBar.test.tsx`** (existing): unchanged, still passes.
 - **`src/components/QueueLive.test.tsx`** (existing): assertions unchanged — `MockEventSource.instances[0]` still resolves to the one-and-only `EventSource` when `QueueLive` is the only mounted consumer in that test file.
 
 ## Out of scope
 
 - No React Context/provider in `layout.tsx`.
 - No change to `/api/cockpit/stream`'s polling behavior or payload shape.
-- No new SidebarNav test file for the SidebarNav+QueueLive integration case — covered at the `useCockpitStream` unit level instead, per user preference.
+- No new SidebarNav/TopBar integration test for the fan-out case — covered at the `cockpitStream` unit level instead, per user preference.
