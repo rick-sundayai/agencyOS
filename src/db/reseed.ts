@@ -2,6 +2,7 @@ import 'dotenv/config';
 import postgres from 'postgres';
 import bcrypt from 'bcryptjs';
 import { ACTION_CLASSES } from '../contracts/decision';
+import { AGENT_PERSONAS } from '../services/agent-personas';
 import { getEnv } from '../lib/env';
 
 // Wipes the local domain data and regenerates a realistic dataset: 10 clients,
@@ -113,6 +114,15 @@ async function reseed() {
       insert into users (org_id, email, full_name, role, password_hash)
       values (${orgId}, 'rick@sundayaiwork.com', 'Rick', 'admin', ${passwordHash})
       on conflict (email) do nothing`;
+
+    // Agent personas — the fixed 7-agent roster (name + 'helpful assistant' prompt).
+    // Replaced wholesale so the roster is exactly these personas.
+    await sql`delete from agents where org_id = ${orgId}`;
+    for (const p of AGENT_PERSONAS) {
+      await sql`
+        insert into agents (org_id, name, system_prompt, api_key_hash)
+        values (${orgId}, ${p.name}, ${p.systemPrompt}, ${bcrypt.hashSync(`${p.name}:${Math.random()}`, 8)})`;
+    }
 
     // --- 2. Wipe domain data (cascade cleans anything referencing it). ---
     await sql`

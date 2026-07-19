@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { rosterFromRuns, type RosterRun } from './agent-roster';
+import { rosterFromAgents, rosterFromRuns, type RosterRun } from './agent-roster';
 
 const NOW = new Date('2026-07-18T12:00:00Z');
 const minsAgo = (m: number) => new Date(NOW.getTime() - m * 60_000);
@@ -65,5 +65,52 @@ describe('rosterFromRuns', () => {
 
   it('is empty when there are no runs', () => {
     expect(rosterFromRuns([], NOW)).toEqual({ entries: [], online: 0, total: 0 });
+  });
+});
+
+describe('rosterFromAgents', () => {
+  it('lists every registered agent as idle when none have runs', () => {
+    const roster = rosterFromAgents(['Scout', 'Sift', 'Echo'], [], NOW);
+    expect(roster).toEqual({
+      entries: [
+        { agent: 'Echo', status: 'idle' },
+        { agent: 'Scout', status: 'idle' },
+        { agent: 'Sift', status: 'idle' },
+      ],
+      online: 3,
+      total: 3,
+    });
+  });
+
+  it('overlays live run status onto the registered agent', () => {
+    const roster = rosterFromAgents(
+      ['Scout', 'Sift'],
+      [run({ agent: 'Scout', status: 'running', started_at: minsAgo(2), finished_at: null })],
+      NOW,
+    );
+    expect(roster.entries).toEqual([
+      { agent: 'Scout', status: 'working' },
+      { agent: 'Sift', status: 'idle' },
+    ]);
+  });
+
+  it('includes an agent that has runs but is not registered', () => {
+    const roster = rosterFromAgents(
+      ['Scout'],
+      [run({ agent: 'legacy-worker', status: 'succeeded' })],
+      NOW,
+    );
+    expect(roster.entries.map((e) => e.agent).sort()).toEqual(['Scout', 'legacy-worker']);
+    expect(roster.total).toBe(2);
+  });
+
+  it('excludes stalled agents from the online count', () => {
+    const roster = rosterFromAgents(
+      ['Scout', 'Sentry'],
+      [run({ agent: 'Sentry', status: 'running', started_at: minsAgo(45), finished_at: null })],
+      NOW,
+    );
+    expect(roster.online).toBe(1);
+    expect(roster.total).toBe(2);
   });
 });

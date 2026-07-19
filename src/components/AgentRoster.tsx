@@ -1,5 +1,6 @@
 import { humanizeAgent } from '../services/agent-roster';
 import type { Roster, RosterStatus } from '../services/agent-roster';
+import { personaFor } from '../services/agent-personas';
 
 // Dot tone per status — a stalled Agent reads --bad (the alarm); the rest stay calm.
 const STATUS_DOT: Record<RosterStatus, string> = {
@@ -11,8 +12,8 @@ const STATUS_DOT: Record<RosterStatus, string> = {
 
 /**
  * The sidebar's live Agent roster — a dumb tile rendering the roster selector's output:
- * every Agent with its status and an "N/M online" summary, with stalled Agents standing
- * out in --bad. Empty (no recent runs) renders nothing rather than an empty shell.
+ * every Agent with its persona icon/colour, its status, and an "N/M online" summary, with
+ * stalled Agents standing out in --bad. Empty renders nothing rather than an empty shell.
  */
 export function AgentRoster({ roster }: { roster: Roster }) {
   if (roster.total === 0) return null;
@@ -22,12 +23,24 @@ export function AgentRoster({ roster }: { roster: Roster }) {
         Agents <span className="roster-online">· {roster.online}/{roster.total} online</span>
       </div>
       <ul className="roster-list">
-        {roster.entries.map((e) => (
-          <li key={e.agent} className={`roster-row${e.status === 'stalled' ? ' stalled' : ''}`}>
-            <span className="roster-name">{humanizeAgent(e.agent)}</span>
-            <span className={`dot roster-dot ${STATUS_DOT[e.status]}`} title={e.status} aria-label={e.status} />
-          </li>
-        ))}
+        {roster.entries.map((e) => {
+          const persona = personaFor(e.agent);
+          return (
+            <li key={e.agent} className={`roster-row${e.status === 'stalled' ? ' stalled' : ''}`}>
+              {persona && (
+                <span
+                  className="roster-ico"
+                  style={{ background: `${persona.color}1a`, color: persona.color }}
+                  aria-hidden="true"
+                >
+                  {persona.icon}
+                </span>
+              )}
+              <span className="roster-name">{humanizeAgent(e.agent)}</span>
+              <span className={`dot roster-dot ${STATUS_DOT[e.status]}`} title={e.status} aria-label={e.status} />
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

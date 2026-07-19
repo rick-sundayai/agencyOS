@@ -84,6 +84,7 @@ export const agents = pgTable('agents', {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
   org_id: uuid('org_id').notNull().references(() => orgs.id),
   name: text('name').notNull(),
+  system_prompt: text('system_prompt').notNull().default(''),
   api_key_hash: text('api_key_hash').notNull().unique(),
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [unique().on(t.org_id, t.name)]);

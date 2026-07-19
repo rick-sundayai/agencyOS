@@ -1,6 +1,6 @@
 import { and, eq, gte } from 'drizzle-orm';
 import { db } from '../db/client';
-import { agent_runs } from '../db/schema';
+import { agent_runs, agents } from '../db/schema';
 import type { AgentRunRow } from './agent-runs';
 
 export type RosterStatus = 'working' | 'review' | 'idle' | 'stalled';
@@ -45,6 +45,26 @@ export function rosterFromRuns(runs: RosterRun[], now: Date = new Date()): Roste
   return { entries, online, total: entries.length };
 }
 
+/**
+ * Pure selector over the registered Agent roster: every registered Agent appears (its
+ * status from its latest run, or 'idle' when it has none), plus any Agent that has runs
+ * but isn't registered. This is the roster the operator supervises — a quiet Agent that
+ * simply hasn't run stays on the team rather than vanishing.
+ */
+export function rosterFromAgents(
+  registered: string[],
+  runs: RosterRun[],
+  now: Date = new Date(),
+): Roster {
+  const statusByAgent = new Map(rosterFromRuns(runs, now).entries.map((e) => [e.agent, e.status]));
+  const names = new Set<string>([...registered, ...statusByAgent.keys()]);
+  const entries = [...names]
+    .map((agent) => ({ agent, status: statusByAgent.get(agent) ?? ('idle' as RosterStatus) }))
+    .sort((a, b) => a.agent.localeCompare(b.agent));
+  const online = entries.filter((e) => e.status !== 'stalled').length;
+  return { entries, online, total: entries.length };
+}
+
 /** Fetch the org's recent Agent runs and derive the live roster. */
 export async function fetchRecentRuns(orgId: string, now: Date = new Date()): Promise<RosterRun[]> {
   const since = new Date(now.getTime() - ROSTER_WINDOW_MS);
@@ -59,9 +79,18 @@ export async function fetchRecentRuns(orgId: string, now: Date = new Date()): Pr
     .where(and(eq(agent_runs.org_id, orgId), gte(agent_runs.started_at, since)));
 }
 
+/** The org's registered Agent names (the persona roster). */
+export async function listRegisteredAgents(orgId: string): Promise<string[]> {
+  const rows = await db.select({ name: agents.name }).from(agents).where(eq(agents.org_id, orgId));
+  return rows.map((r) => r.name);
+}
+
 export async function listRoster(orgId: string, now: Date = new Date()): Promise<Roster> {
-  const runs = await fetchRecentRuns(orgId, now);
-  return rosterFromRuns(runs, now);
+  const [registered, runs] = await Promise.all([
+    listRegisteredAgents(orgId),
+    fetchRecentRuns(orgId, now),
+  ]);
+  return rosterFromAgents(registered, runs, now);
 }
 
 export function humanizeAgent(agent: string): string {
