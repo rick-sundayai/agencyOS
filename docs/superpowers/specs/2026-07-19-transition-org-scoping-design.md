@@ -30,7 +30,7 @@ No new status codes or error messages on either path. The agent route's existing
 Two new regression tests, one per caller:
 
 - Agent route (`src/app/api/agent/decisions/[id]/transition/route.test.ts`): seed two agents in two different orgs (`seedTestAgentInFreshOrg`, already available from ADR-0006's work), propose a decision as org A's agent, then attempt to transition it via org B's agent's API key. Assert the response is 404 (not 200, not 409, not 500), and assert the decision's state in the database is unchanged from its pre-attempt value.
-- `queue-actions.ts` (new or existing test file, whichever the codebase already uses for this module — the plan will confirm during Task 1): seed a decision under org A, mock/construct a session for a user in org B, call `approveDecisionAction` (or `cancelDecisionAction`), assert it throws `Decision not found: ${id}`, and assert the decision's state is unchanged in the database.
+- `src/app/queue-actions.test.ts` (existing file): seed a decision under org A, mock/construct a session for a user in org B, call `approveDecisionAction` (or `cancelDecisionAction`), assert it throws `Decision not found: ${id}`, and assert the decision's state is unchanged in the database.
 
 ## Scope
 
