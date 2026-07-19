@@ -5,7 +5,6 @@ import { DECISION_STATES } from '../../../../../../contracts/decision';
 
 const TransitionBodySchema = z.strictObject({
   to: z.enum(DECISION_STATES),
-  actor: z.string().min(1),
   error: z.string().nullable().optional(),
   outcome: z.record(z.string(), z.unknown()).optional(),
 });
@@ -14,12 +13,12 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string }> },
 ): Promise<Response> {
-  const denied = requireAgentKey(req);
-  if (denied) return denied;
+  const auth = await requireAgentKey(req);
+  if (auth instanceof Response) return auth;
   const { id } = await ctx.params;
   try {
     const body = TransitionBodySchema.parse(await req.json());
-    const decision = await transitionDecision(id, body.to, body.actor, {
+    const decision = await transitionDecision(id, body.to, auth.name, {
       error: body.error, outcome: body.outcome,
     });
     return Response.json({ decision });

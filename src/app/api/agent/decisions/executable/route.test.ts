@@ -10,9 +10,10 @@ import { POST as RUNS } from '../../runs/route';
 const sql = postgres(getEnv('DATABASE_URL'), { max: 1 });
 let KEY: string;
 let orgId: string;
+let AGENT_NAME: string;
 
 beforeAll(async () => {
-  ({ orgId, key: KEY } = await seedTestAgent());
+  ({ orgId, key: KEY, name: AGENT_NAME } = await seedTestAgent());
 });
 
 const proposal = () => ({
@@ -48,9 +49,9 @@ describe('POST /api/agent/decisions/:id/transition', () => {
 
   it('walks executing → executed with outcome', async () => {
     const d = await proposeDecision(proposal()); // tier 2 → approved
-    const r1 = await call(d.id, { to: 'executing', actor: 'communication' });
+    const r1 = await call(d.id, { to: 'executing' });
     expect(r1.status).toBe(200);
-    const r2 = await call(d.id, { to: 'executed', actor: 'communication', outcome: { message_id: 'm1' } });
+    const r2 = await call(d.id, { to: 'executed', outcome: { message_id: 'm1' } });
     const { decision } = await r2.json();
     expect(decision.state).toBe('executed');
     expect(decision.outcome).toEqual({ message_id: 'm1' });
@@ -58,7 +59,7 @@ describe('POST /api/agent/decisions/:id/transition', () => {
 
   it('409 on an illegal transition', async () => {
     const d = await proposeDecision(proposal());
-    const res = await call(d.id, { to: 'undone', actor: 'x' });
+    const res = await call(d.id, { to: 'undone' });
     expect(res.status).toBe(409);
   });
 
@@ -73,14 +74,33 @@ describe('POST /api/agent/decisions/:id/transition', () => {
     // Both 'executing' and 'cancelled' are valid next states from 'approved' — this isn't
     // an illegal-transition 409, it's the ADR-0003 compare-and-swap race guard.
     const [a, b] = await Promise.allSettled([
-      call(d.id, { to: 'executing', actor: 'communication' }),
-      call(d.id, { to: 'cancelled', actor: 'user-1' }),
+      call(d.id, { to: 'executing' }),
+      call(d.id, { to: 'cancelled' }),
     ]);
     const responses = [a, b].map((r) => (r.status === 'fulfilled' ? r.value : null)).filter(Boolean) as Response[];
     expect(responses.map((r) => r.status).sort()).toEqual([200, 409]);
     const loser = responses.find((r) => r.status === 409)!;
     const body = await loser.json();
     expect(body.error).toMatch(/already transitioned by another process/);
+  });
+
+  it('stamps approved_by with the authenticated agent, not a client-supplied value', async () => {
+    const proposeSchema = () => ({
+      org_id: orgId, agent: 'client-account', action_class: 'client.submit_candidate',
+      reasoning: { summary: 'route test', evidence: [], model: 'm', prompt_version: 'v' },
+      payload: {},
+    });
+    const d = await proposeDecision(proposeSchema()); // tier 3 → proposed
+    const res = await call(d.id, { to: 'approved' });
+    expect(res.status).toBe(200);
+    const { decision } = await res.json();
+    expect(decision.approved_by).toBe(AGENT_NAME);
+  });
+
+  it('400s if the request body still tries to supply an actor field', async () => {
+    const d = await proposeDecision(proposal());
+    const res = await call(d.id, { to: 'executing', actor: 'spoofed-agent-name' });
+    expect(res.status).toBe(400);
   });
 });
 
