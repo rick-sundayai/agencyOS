@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { DecisionCard } from './DecisionCard';
 import { DecisionDrawer } from './DecisionDrawer';
+import { subscribeCockpitStream } from './cockpit-stream';
 import type { QueueDecision } from './queue-types';
 
 export function QueueLive({ initial }: { initial: QueueDecision[] }) {
@@ -11,17 +12,12 @@ export function QueueLive({ initial }: { initial: QueueDecision[] }) {
   const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
-    const es = new EventSource('/api/cockpit/stream');
-    es.onopen = () => setConnected(true);
-    es.onmessage = (ev) => {
-      const data = JSON.parse(ev.data) as { queue: QueueDecision[] };
-      setQueue(data.queue);
-    };
-    // Fires for a dropped connection AND for a session-expired redirect toward /login
-    // (not text/event-stream, so EventSource treats it as an error). Either way, the
-    // queue may now be stale — say so instead of leaving a frozen "live" view on screen.
-    es.onerror = () => setConnected(false);
-    return () => es.close();
+    // Shared with useLivePendingCount's stream subscription — a dropped connection means
+    // the queue may now be stale, so say so instead of leaving a frozen "live" view on screen.
+    return subscribeCockpitStream((s) => {
+      setQueue(s.queue);
+      setConnected(s.connected);
+    });
   }, []);
 
   const remove = (id: string) => setQueue((q) => q.filter((d) => d.id !== id));
