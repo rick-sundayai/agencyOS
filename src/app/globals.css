@@ -47,7 +47,10 @@ a {
 .error { color: var(--bad); font-size: 13px; font-weight: 600; }
 
 /* --- cockpit: queue --- */
-main { max-width: 1080px; margin: 0 auto; padding: 28px; }
+/* width:100% so main fills the content column up to its max-width; without it the
+   `margin: 0 auto` defeats the parent flex-column's stretch and main shrink-wraps
+   to its content, collapsing responsive grids to a single narrow column. */
+main { width: 100%; max-width: 1080px; margin: 0 auto; padding: 28px; }
 main > h1 { font-family: var(--font-display); font-size: 24px; font-weight: 700; letter-spacing: -0.02em; color: var(--ink-900); margin-bottom: 18px; }
 .queue { display: flex; flex-direction: column; gap: var(--gap); }
 .card { border: 1px solid var(--ink-200); border-radius: var(--r-md); padding: 16px; background: var(--paper); }
@@ -337,4 +340,93 @@ main > p { color: var(--ink-500); font-size: 13.5px; margin-bottom: 4px; }
 .analytics-barlabel { font-size: 13px; color: var(--ink-700); }
 .analytics-bar { height: 8px; border-radius: var(--r-pill); background: var(--ink-100); overflow: hidden; }
 .analytics-bar-fill { display: block; height: 100%; background: var(--accent); border-radius: var(--r-pill); }
+
+/* --- cockpit: record card grids (Candidates, Job Orders) --- */
+/* Page header: eyebrow + display title + lede, shared by the record list pages. */
+.page-head { margin-bottom: 20px; }
+.eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-400); }
+.page-head h1 { margin: 4px 0 0; }
+.page-lede { color: var(--ink-500); font-size: 14px; line-height: 1.45; margin-top: 6px; max-width: 60ch; }
+
+/* Job-order summary tiles — reuse the Health-rail tile look at 3 across. */
+.rec-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
+
+/* Candidate cards — a responsive grid of clickable record cards. */
+.rec-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+.rec-card {
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 16px; background: var(--paper);
+  border: 1px solid var(--ink-200); border-radius: var(--r-lg); box-shadow: var(--sh-xs);
+  transition: box-shadow .15s, border-color .15s, transform .1s;
+}
+.rec-card:hover { box-shadow: var(--sh-md); border-color: var(--ink-300); transform: translateY(-1px); }
+.rec-card-head { display: flex; align-items: flex-start; gap: 12px; }
+.rec-avatar {
+  width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent-soft); color: var(--accent-ink); font-size: 13px; font-weight: 700;
+}
+.rec-card-title { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.rec-card-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rec-card-name { font-size: 15px; font-weight: 700; color: var(--ink-900); }
+.rec-card-sub { font-size: 13px; color: var(--ink-600); }
+.rec-card-meta { font-size: 12.5px; color: var(--ink-400); }
+.rec-card-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding-top: 12px; border-top: 1px solid var(--ink-100);
+  font-size: 12px; color: var(--ink-400);
+}
+
+/* Fit badge — tone tracks the domain fit_rating; colour is the signal. */
+.fit-badge { display: inline-flex; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: var(--r-pill); }
+.fit-good { color: var(--good); background: var(--good-soft); }
+.fit-warn { color: var(--warn); background: var(--warn-soft); }
+.fit-bad { color: var(--bad); background: var(--bad-soft); }
+
+/* Fit-score ring — SVG donut with the weighted score centred. */
+.fit-ring { position: relative; flex-shrink: 0; width: 44px; height: 44px; }
+.fit-ring svg { transform: rotate(-90deg); }
+.fit-ring-track { fill: none; stroke: var(--ink-150); stroke-width: 3; }
+.fit-ring-value { fill: none; stroke: var(--ink-400); stroke-width: 3; stroke-linecap: round; }
+.fit-ring.fit-good .fit-ring-value { stroke: var(--good); }
+.fit-ring.fit-warn .fit-ring-value { stroke: var(--warn); }
+.fit-ring.fit-bad .fit-ring-value { stroke: var(--bad); }
+.fit-ring-num {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: var(--ink-800);
+}
+
+/* Job-order cards — a stacked list of wide clickable cards. */
+.jo-list { display: flex; flex-direction: column; gap: 10px; }
+.jo-card {
+  display: flex; align-items: center; gap: 16px;
+  padding: 16px 18px; background: var(--paper);
+  border: 1px solid var(--ink-200); border-radius: var(--r-lg); box-shadow: var(--sh-xs);
+  transition: box-shadow .15s, border-color .15s;
+}
+.jo-card:hover { box-shadow: var(--sh-md); border-color: var(--ink-300); }
+.jo-card-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.jo-card-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.jo-card-title { font-size: 15px; font-weight: 700; color: var(--ink-900); }
+.jo-card-chips { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.flag-empty { font-size: 11px; font-weight: 700; color: var(--bad); background: var(--bad-soft); padding: 2px 8px; border-radius: var(--r-pill); }
+.jo-card-stats { display: flex; align-items: center; gap: 20px; flex-shrink: 0; }
+.jo-stat { display: flex; flex-direction: column; align-items: flex-end; }
+.jo-stat-num { font-size: 17px; font-weight: 700; color: var(--ink-900); line-height: 1.1; }
+.jo-stat-label { font-size: 11px; color: var(--ink-400); }
+.jo-card-chevron { font-size: 20px; color: var(--ink-300); }
+
+/* Status chip — neutral by default; filled/placed read positive, closed/lost muted. */
+.status-chip { display: inline-flex; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: var(--r-pill); background: var(--ink-100); color: var(--ink-600); text-transform: capitalize; }
+.status-chip.status-open { color: var(--good); background: var(--good-soft); }
+.status-chip.status-filled, .status-chip.status-placed { color: var(--accent-ink); background: var(--accent-soft); }
+
+@media (max-width: 640px) {
+  .rec-stats { grid-template-columns: 1fr; }
+  .rec-grid { grid-template-columns: 1fr; }
+  .jo-card { flex-direction: column; align-items: flex-start; }
+  .jo-card-stats { align-self: stretch; justify-content: flex-start; gap: 24px; }
+  .jo-stat { align-items: flex-start; }
+  .jo-card-chevron { display: none; }
+}
 .analytics-barcount { font-size: 12.5px; font-weight: 600; color: var(--ink-600); min-width: 70px; text-align: right; }

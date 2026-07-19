@@ -121,11 +121,30 @@ export async function getPipelineBoard(orgId: string): Promise<PipelineColumn[]>
 }
 
 export async function listCandidates(orgId: string) {
-  return db
+  const rows = await db
     .select()
     .from(candidates)
     .where(eq(candidates.org_id, orgId))
     .orderBy(desc(candidates.created_at));
+
+  // Attach each candidate's latest fit score (most-recent scores row wins) so the
+  // card grid can show a fit rating + ring without a per-card query. Org-scoped.
+  const scoreRows = await db
+    .select({
+      candidate_id: scores.candidate_id,
+      fit_rating: scores.fit_rating,
+      weighted_score: scores.weighted_score,
+      created_at: scores.created_at,
+    })
+    .from(scores)
+    .where(eq(scores.org_id, orgId))
+    .orderBy(desc(scores.created_at));
+  const latestScore = new Map<string, (typeof scoreRows)[number]>();
+  for (const s of scoreRows) {
+    if (!latestScore.has(s.candidate_id)) latestScore.set(s.candidate_id, s);
+  }
+
+  return rows.map((c) => ({ ...c, score: latestScore.get(c.id) ?? null }));
 }
 
 export async function getCandidateProfile(orgId: string, candidateId: string) {
