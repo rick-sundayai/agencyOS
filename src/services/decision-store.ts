@@ -102,15 +102,19 @@ export async function listQueue(orgId: string): Promise<DecisionRow[]> {
     .orderBy(desc(decisions.proposed_at));
 }
 
-/** Approved decisions whose undo window is absent or expired — ready for a capability agent. */
+/**
+ * Approved decisions whose undo window is absent or expired — ready for a capability agent.
+ * orgId is required, not optional, so no caller (including a future one) can silently list
+ * across all orgs (ADR-0007).
+ */
 export async function listExecutable(
-  opts: { orgId?: string; actionPrefix?: string } = {},
+  opts: { orgId: string; actionPrefix?: string },
 ): Promise<DecisionRow[]> {
   const conds = [
     eq(decisions.state, 'approved'),
     or(isNull(decisions.undo_expires_at), lte(decisions.undo_expires_at, new Date())),
+    eq(decisions.org_id, opts.orgId),
   ];
-  if (opts.orgId) conds.push(eq(decisions.org_id, opts.orgId));
   if (opts.actionPrefix) conds.push(like(decisions.action_class, `${opts.actionPrefix}%`));
   return db.select().from(decisions).where(and(...conds)).orderBy(asc(decisions.proposed_at));
 }
