@@ -52,8 +52,8 @@ main > h1 { font-family: var(--font-display); font-size: 24px; font-weight: 700;
 .queue { display: flex; flex-direction: column; gap: var(--gap); }
 .card { border: 1px solid var(--ink-200); border-radius: var(--r-md); padding: 16px; background: var(--paper); }
 .badge { display: inline-flex; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: var(--r-pill); background: var(--ink-100); color: var(--ink-700); }
-button { cursor: pointer; padding: 6px 14px; border-radius: 6px; border: 1px solid #111; background: #111; color: #fff; }
-button.secondary { background: #fff; color: #111; }
+button { cursor: pointer; padding: 6px 14px; border-radius: var(--r-xs); border: 1px solid var(--ink-900); background: var(--ink-900); color: var(--paper); }
+button.secondary { background: var(--paper); color: var(--ink-900); }
 button:disabled { opacity: 0.5; cursor: default; }
 .empty { color: var(--ink-400); padding: 16px 0; }
 .banner-warning { display: flex; gap: 8px; align-items: center; background: var(--warn-soft); border: 1px solid var(--warn); border-radius: var(--r-sm); padding: 8px 12px; margin-bottom: 12px; color: var(--ink-800); }
