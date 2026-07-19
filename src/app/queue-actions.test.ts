@@ -131,4 +131,20 @@ describe('role-based authorization', () => {
       await sql`update users set role = 'admin' where id = ${adminUserId}`; // restore for other tests
     }
   });
+
+  it('a session in a different org cannot act on the decision — same "not found" as a missing one', async () => {
+    const otherOrg = (await sql`insert into orgs (name) values (${'qa-other-org-' + Date.now()}) returning id`)[0].id;
+    const otherUserId = (await sql`
+      insert into users (org_id, email, full_name, role) values
+      (${otherOrg}, ${'qa-other-' + Date.now() + '@example.com'}, 'QA Other', 'admin') returning id`)[0].id;
+    vi.mocked(auth).mockResolvedValue({
+      user: { id: otherUserId, org_id: otherOrg, role: 'admin' },
+      expires: '',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    const d = await proposeDecision(tier3Proposal());
+    await expect(approveDecisionAction(d.id)).rejects.toThrow(`Decision not found: ${d.id}`);
+    const unchanged = await getDecision(d.id);
+    expect(unchanged?.state).toBe('proposed');
+  });
 });
