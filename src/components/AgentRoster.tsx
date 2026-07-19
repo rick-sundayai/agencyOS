@@ -1,3 +1,4 @@
+import { humanizeAgent } from '../services/agent-roster';
 import type { Roster, RosterStatus } from '../services/agent-roster';
 
 // Dot tone per status — a stalled Agent reads --bad (the alarm); the rest stay calm.
@@ -7,13 +8,6 @@ const STATUS_DOT: Record<RosterStatus, string> = {
   idle: 'roster-idle',
   stalled: 'roster-stalled',
 };
-
-function humanize(agent: string): string {
-  return agent
-    .split('-')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
-}
 
 /**
  * The sidebar's live Agent roster — a dumb tile rendering the roster selector's output:
@@ -30,7 +24,7 @@ export function AgentRoster({ roster }: { roster: Roster }) {
       <ul className="roster-list">
         {roster.entries.map((e) => (
           <li key={e.agent} className={`roster-row${e.status === 'stalled' ? ' stalled' : ''}`}>
-            <span className="roster-name">{humanize(e.agent)}</span>
+            <span className="roster-name">{humanizeAgent(e.agent)}</span>
             <span className={`dot roster-dot ${STATUS_DOT[e.status]}`} title={e.status} aria-label={e.status} />
           </li>
         ))}

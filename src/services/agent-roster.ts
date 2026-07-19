@@ -46,9 +46,9 @@ export function rosterFromRuns(runs: RosterRun[], now: Date = new Date()): Roste
 }
 
 /** Fetch the org's recent Agent runs and derive the live roster. */
-export async function listRoster(orgId: string, now: Date = new Date()): Promise<Roster> {
+export async function fetchRecentRuns(orgId: string, now: Date = new Date()): Promise<RosterRun[]> {
   const since = new Date(now.getTime() - ROSTER_WINDOW_MS);
-  const runs = await db
+  return db
     .select({
       agent: agent_runs.agent,
       status: agent_runs.status,
@@ -57,5 +57,16 @@ export async function listRoster(orgId: string, now: Date = new Date()): Promise
     })
     .from(agent_runs)
     .where(and(eq(agent_runs.org_id, orgId), gte(agent_runs.started_at, since)));
+}
+
+export async function listRoster(orgId: string, now: Date = new Date()): Promise<Roster> {
+  const runs = await fetchRecentRuns(orgId, now);
   return rosterFromRuns(runs, now);
+}
+
+export function humanizeAgent(agent: string): string {
+  return agent
+    .split('-')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
 }

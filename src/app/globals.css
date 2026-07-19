@@ -256,6 +256,19 @@ main > p { color: var(--ink-500); font-size: 13.5px; margin-bottom: 4px; }
 .roster-idle { background: var(--idle); }
 .roster-stalled { background: var(--bad); }
 
+/* Agents page — a grid of per-agent cards mirroring the sidebar roster's status */
+.agent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.agent-card.stalled { border-color: color-mix(in srgb, var(--bad) 40%, var(--ink-200)); background: color-mix(in srgb, var(--bad-soft) 40%, var(--paper)); }
+.agent-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+.agent-card-name { font-size: 14.5px; font-weight: 700; color: var(--ink-900); }
+.agent-status-chip.status-stalled { color: var(--bad); }
+.agent-status-chip.status-working { color: var(--working); }
+.agent-status-chip.status-review { color: var(--review); }
+.agent-status-chip.status-idle { color: var(--ink-500); }
+.agent-card-throughput { display: flex; align-items: baseline; gap: 7px; padding-top: 11px; border-top: 1px solid var(--ink-100); }
+.agent-card-count { font-size: 18px; }
+.agent-card-sublabel { font-size: 12px; color: var(--ink-400); }
+
 /* Account / session footer */
 .sidebar-footer { border-top: 1px solid var(--ink-150); padding: 12px; display: flex; flex-direction: column; gap: 10px; }
 .account { display: flex; align-items: center; gap: 10px; min-width: 0; }
