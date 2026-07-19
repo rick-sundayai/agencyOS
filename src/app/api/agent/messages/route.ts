@@ -6,7 +6,8 @@ export async function POST(req: Request): Promise<Response> {
   const auth = await requireAgentKey(req);
   if (auth instanceof Response) return auth;
   try {
-    return Response.json(await logMessage(await req.json()), { status: 201 });
+    const body = await req.json();
+    return Response.json(await logMessage({ ...body, org_id: auth.org_id }), { status: 201 });
   } catch (err) {
     if (err instanceof ZodError) {
       return Response.json({ error: 'validation_failed', issues: err.issues }, { status: 400 });

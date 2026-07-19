@@ -13,7 +13,7 @@ export async function POST(req: Request): Promise<Response> {
   if (auth instanceof Response) return auth;
   try {
     const p = SearchSchema.parse(await req.json());
-    const results = await searchCandidatesByEmbedding(p.org_id, p.query_embedding, p.limit);
+    const results = await searchCandidatesByEmbedding(auth.org_id, p.query_embedding, p.limit);
     return Response.json({ results });
   } catch (err) {
     if (err instanceof ZodError) {
