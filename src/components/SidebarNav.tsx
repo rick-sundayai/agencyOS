@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState, type ReactNode } from 'react';
-import type { QueueDecision } from './queue-types';
+import type { ReactNode } from 'react';
+import { useLivePendingCount } from './useLivePendingCount';
 
 /**
  * The Control Room's primary navigation. Renders the domain sections (adapted from
@@ -26,24 +26,6 @@ const NAV: NavItem[] = [
   { href: '/agents', label: 'Agents', icon: sparkleIcon() },
   { href: '/pipeline', label: 'Pipeline', icon: pipelineIcon() },
 ];
-
-/**
- * Keeps the pending-Decision count live off the Cockpit stream (the same source QueueLive
- * reads). Seeded with the server-rendered snapshot so the badge is correct before the
- * stream connects; on a dropped stream it holds the last known value rather than lying.
- */
-function useLivePendingCount(initial: number): number {
-  const [count, setCount] = useState(initial);
-  useEffect(() => {
-    const es = new EventSource('/api/cockpit/stream');
-    es.onmessage = (ev) => {
-      const data = JSON.parse(ev.data) as { queue: QueueDecision[] };
-      setCount(data.queue.length);
-    };
-    return () => es.close();
-  }, []);
-  return count;
-}
 
 function isActive(pathname: string, href: string): boolean {
   // The Cockpit lives at the root, so it's active only on an exact match; every other

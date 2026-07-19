@@ -202,6 +202,25 @@ main > p { color: var(--ink-500); font-size: 13.5px; margin-bottom: 4px; }
 
 .content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 
+/* Top command bar — RecruiterPro's shell header treatment, holding only the
+   notification bell (no search box or "Ask the team" button — no backend for either). */
+.topbar {
+  height: 56px; flex-shrink: 0;
+  display: flex; align-items: center; gap: 14px;
+  padding: 0 24px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--ink-150);
+}
+.topbar-spacer { flex: 1; }
+.bell { position: relative; }
+.bell-badge {
+  position: absolute; top: 2px; right: 2px;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  border-radius: var(--r-pill); font-size: 10px; font-weight: 700;
+  background: var(--bad); color: var(--on-accent);
+}
+
 /* Brand / identity */
 .brand { display: flex; align-items: center; gap: 10px; padding: 18px 18px 12px; }
 .brand-mark {

@@ -6,6 +6,7 @@ import { listRoster } from "../services/agent-roster";
 import { ThemeToggle, THEME_STORAGE_KEY, DEFAULT_THEME } from "../components/ThemeToggle";
 import { SidebarNav } from "../components/SidebarNav";
 import { AgentRoster } from "../components/AgentRoster";
+import { TopBar } from "../components/TopBar";
 import "./tokens.css";
 import "./globals.css";
 
@@ -96,7 +97,10 @@ export default async function RootLayout({
                 </div>
               </div>
             </aside>
-            <div className="content">{children}</div>
+            <div className="content">
+              <TopBar pendingCount={pendingCount} />
+              {children}
+            </div>
           </div>
         ) : (
           children
