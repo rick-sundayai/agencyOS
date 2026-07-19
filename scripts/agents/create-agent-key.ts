@@ -1,10 +1,10 @@
 import 'dotenv/config';
-import { randomBytes, createHash } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
+import { hashApiKey } from '../../src/lib/agent-auth';
 
 export function generateAgentKey(): { plaintext: string; hash: string } {
   const plaintext = randomBytes(32).toString('hex');
-  const hash = createHash('sha256').update(plaintext).digest('hex');
-  return { plaintext, hash };
+  return { plaintext, hash: hashApiKey(plaintext) };
 }
 
 if (process.argv[1]?.endsWith('create-agent-key.ts')) {
