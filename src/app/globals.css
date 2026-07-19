@@ -426,6 +426,54 @@ main > p { color: var(--ink-500); font-size: 13.5px; margin-bottom: 4px; }
 .status-chip.status-open, .status-chip.status-active { color: var(--good); background: var(--good-soft); }
 .status-chip.status-filled, .status-chip.status-placed { color: var(--accent-ink); background: var(--accent-soft); }
 
+/* --- cockpit: record detail pages (candidate / job order) --- */
+.back-link { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600; color: var(--ink-500); margin-bottom: 14px; }
+.back-link:hover { color: var(--accent); }
+
+/* Header card: avatar / identity / fit ring. */
+.detail-head {
+  display: flex; align-items: flex-start; gap: 16px; margin-bottom: 16px;
+  padding: 20px; background: var(--paper);
+  border: 1px solid var(--ink-200); border-radius: var(--r-lg); box-shadow: var(--sh-xs);
+}
+.detail-avatar { width: 52px; height: 52px; font-size: 16px; }
+.detail-head-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.detail-head h1 { font-family: var(--font-display); font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: var(--ink-900); margin: 0; }
+.detail-sub { color: var(--ink-500); font-size: 14px; line-height: 1.45; }
+.detail-contacts { display: flex; flex-wrap: wrap; gap: 7px; }
+.detail-ring { width: 56px; height: 56px; flex-shrink: 0; }
+.detail-ring .fit-ring-num { font-size: 15px; }
+
+/* Content panels — one card per section, uppercase title. */
+.detail-panel {
+  margin-bottom: 14px; padding: 18px; background: var(--paper);
+  border: 1px solid var(--ink-200); border-radius: var(--r-lg); box-shadow: var(--sh-xs);
+}
+.detail-panel h2 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; color: var(--ink-500); margin: 0 0 12px; }
+
+.detail-rows { list-style: none; }
+.detail-row { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--ink-100); }
+.detail-row:first-child { padding-top: 0; }
+.detail-row:last-child { border-bottom: none; padding-bottom: 0; }
+.detail-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.detail-row-title { font-size: 14px; font-weight: 600; color: var(--ink-900); display: inline-flex; align-items: center; gap: 8px; }
+a.detail-row-title:hover { color: var(--accent); }
+.detail-row-sub { font-size: 12px; color: var(--ink-400); }
+.detail-row-meta { font-size: 12px; color: var(--ink-400); white-space: nowrap; }
+.detail-score { font-size: 13px; font-weight: 700; color: var(--ink-700); }
+
+/* Stage tag — a chip with the stage's dot colour (shares .pipeline-dot tints). */
+.stage-tag { display: inline-flex; align-items: center; gap: 7px; height: 24px; padding: 0 10px; border-radius: var(--r-pill); font-size: 12px; font-weight: 600; color: var(--ink-600); background: var(--ink-100); white-space: nowrap; }
+.stage-tag .dot { width: 7px; height: 7px; }
+
+/* Requirements block inside the job-order detail panel. */
+.req-block { display: flex; flex-direction: column; gap: 7px; }
+.req-block + .req-block { margin-top: 14px; }
+.req-label { font-size: 12px; font-weight: 600; color: var(--ink-500); }
+
+/* Candidate cards in the job-order pipeline board link through to the candidate. */
+.pipeline-card .fit-badge { margin-top: 7px; }
+
 @media (max-width: 640px) {
   .rec-stats { grid-template-columns: 1fr; }
   .rec-grid { grid-template-columns: 1fr; }
@@ -433,5 +481,6 @@ main > p { color: var(--ink-500); font-size: 13.5px; margin-bottom: 4px; }
   .jo-card-stats { align-self: stretch; justify-content: flex-start; gap: 24px; }
   .jo-stat { align-items: flex-start; }
   .jo-card-chevron { display: none; }
+  .detail-head { flex-wrap: wrap; }
 }
 .analytics-barcount { font-size: 12.5px; font-weight: 600; color: var(--ink-600); min-width: 70px; text-align: right; }

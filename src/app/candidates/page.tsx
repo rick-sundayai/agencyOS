@@ -78,12 +78,12 @@ function initials(name: string): string {
   return (letters || '?').toUpperCase();
 }
 
-/** numeric weighted_score (a Postgres numeric, arrives as string) → ring geometry over a 100-point scale. */
+/** weighted_score is a 0–1 fraction (a Postgres numeric, arrives as string) → ring geometry as a percentage. */
 function fitRing(weighted: string | null): { value: number; dash: number; gap: number } | null {
   if (weighted == null) return null;
   const n = Number(weighted);
   if (!Number.isFinite(n)) return null;
-  const value = Math.round(Math.max(0, Math.min(100, n)));
+  const value = Math.round(Math.max(0, Math.min(1, n)) * 100);
   const circumference = 2 * Math.PI * 15.5; // r = 15.5 in the 36×36 viewBox
   const dash = (value / 100) * circumference;
   return { value, dash, gap: circumference - dash };
