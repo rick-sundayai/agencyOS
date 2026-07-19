@@ -38,7 +38,7 @@ describe('computeAnalytics — decisions metrics', () => {
       ],
     };
     const a = computeAnalytics(input, NOW);
-    expect(a.decisionsPerDay).toBeCloseTo(1 / 30, 5);
+    expect(a.decisionsPerDay).toBe(0); // round1(1/30) rounds down to 0.0 at 1 decimal — the windowing exclusion is what this test verifies
   });
 
   it('computes auto-run rate as policy-approved / total in window', () => {

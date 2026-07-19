@@ -42,7 +42,7 @@ export function computeAnalytics(input: AnalyticsInput, now: Date = new Date()):
   const decisionsSince = new Date(now.getTime() - DECISIONS_WINDOW_MS);
   const recentDecisions = input.decisions.filter((d) => d.proposed_at >= decisionsSince);
 
-  const decisionsPerDay = recentDecisions.length / 30;
+  const decisionsPerDay = round1(recentDecisions.length / 30);
   const autoRunRate = recentDecisions.length === 0
     ? 0
     : recentDecisions.filter((d) => d.approved_by === 'policy').length / recentDecisions.length;
