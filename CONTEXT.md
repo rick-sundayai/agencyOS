@@ -62,6 +62,24 @@ The set of operational vital signs shown as tiles above the queue. Calm by defau
 
 **Distinguishes from:** Cockpit — see Cockpit.
 
+### Pipeline
+
+The board view of Applications arranged by Stage — one column per Stage, each card an Application (a candidate against a job order). Dragging a card advances the Application to a new Stage. It is the visual, operator-facing rendering of the same `applications.stage` data the ATS record pages read.
+
+**Stage** — the canonical Application lifecycle vocabulary, defined once in `PIPELINE_STAGES` (`src/services/ats-views.ts`) and backing real `applications.stage` data plus the decision contracts. There are seven, in order: **sourced → screened → submitted → interviewing → offer → placed → rejected** (`placed` and `rejected` are terminal).
+
+**Invariants:**
+- A given Application is in exactly one Stage at a time.
+- The Stage set is AgencyOS's own, not RecruiterPro's. RP's design mockup uses a different, throwaway set (`sourced/screened/contacted/interviewing/offer`); AgencyOS adopts RP's *visual* column treatment (per-stage color, drag-to-advance) but keeps its own Stage vocabulary. RP's `contacted` has no AgencyOS Stage — outreach is modelled as Conversations/Messages, not a pipeline Stage.
+
+### Analytics
+
+The operator-facing agency-performance view (RP's design ported to AgencyOS). Scoped to metrics AgencyOS's data can honestly back today: Decisions/day and Auto-run rate (`decisions`), Autonomy Tier split (`decisions.tier`), current Stage distribution (`applications.stage`), placements per month and Time-to-fill (`placements` + timestamps), candidate sources (`candidates.source`), and Agent team performance (`agent_runs`).
+
+**Invariants:**
+- Analytics shows only real derived numbers — never fabricated or placeholder figures.
+- Metrics that require *event history* AgencyOS does not yet record are deliberately absent, not faked: **funnel conversion %** (stage-to-stage), **time-to-shortlist / per-stage timing**, and **placements-vs-goal**. These need a stage-transition log (`applications` stores only current Stage + `updated_at`) and per-org placement goals, both deferred to a follow-up.
+
 ### Consent
 
 A candidate's permission status for a given outreach channel (granted / revoked / unknown). It is the compliance basis for any agent outreach: contacting a candidate on a channel without granted consent is a compliance breach.
