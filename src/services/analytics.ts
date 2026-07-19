@@ -1,3 +1,6 @@
+import { and, eq, gte } from 'drizzle-orm';
+import { db } from '../db/client';
+import { agent_runs, applications, candidates, decisions, placements } from '../db/schema';
 import type { RosterRun } from './agent-roster';
 import type { AgentThroughput } from './agent-throughput';
 import { throughputFromRuns } from './agent-throughput';
@@ -102,5 +105,53 @@ export function computeAnalytics(input: AnalyticsInput, now: Date = new Date()):
     timeToFillDays,
     candidateSources,
     agentPerformance: throughputFromRuns(input.agentRuns),
+  };
+}
+
+// Generous lookback for the higher-volume tables (decisions, agent runs) so
+// computeAnalytics's own 30-day/6-month windowing always has enough rows; applications
+// and candidates represent current state and placements are read in full (a recruiting
+// org's placement volume doesn't warrant a DB-side date filter).
+const READER_LOOKBACK_MS = 35 * 24 * 60 * 60_000;
+
+/** Fetch every row computeAnalytics needs, scoped to one org. Holds no calculation. */
+export async function fetchAnalyticsInput(orgId: string, now: Date = new Date()): Promise<AnalyticsInput> {
+  const since = new Date(now.getTime() - READER_LOOKBACK_MS);
+
+  const [decisionRows, applicationRows, placementRows, candidateRows, agentRunRows] = await Promise.all([
+    db
+      .select({ tier: decisions.tier, approved_by: decisions.approved_by, proposed_at: decisions.proposed_at })
+      .from(decisions)
+      .where(and(eq(decisions.org_id, orgId), gte(decisions.proposed_at, since))),
+    db
+      .select({ stage: applications.stage })
+      .from(applications)
+      .where(eq(applications.org_id, orgId)),
+    db
+      .select({ start_date: placements.start_date, application_created_at: applications.created_at })
+      .from(placements)
+      .innerJoin(applications, eq(placements.application_id, applications.id))
+      .where(eq(placements.org_id, orgId)),
+    db
+      .select({ source: candidates.source })
+      .from(candidates)
+      .where(eq(candidates.org_id, orgId)),
+    db
+      .select({
+        agent: agent_runs.agent,
+        status: agent_runs.status,
+        started_at: agent_runs.started_at,
+        finished_at: agent_runs.finished_at,
+      })
+      .from(agent_runs)
+      .where(and(eq(agent_runs.org_id, orgId), gte(agent_runs.started_at, since))),
+  ]);
+
+  return {
+    decisions: decisionRows,
+    applications: applicationRows,
+    placements: placementRows,
+    candidates: candidateRows,
+    agentRuns: agentRunRows,
   };
 }
