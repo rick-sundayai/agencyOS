@@ -43,6 +43,10 @@ next-env.d.ts
 
 # worktrees
 .worktrees/
+.claude/worktrees/
+
+# local Claude Code settings (personal overrides; launch.json stays tracked)
+.claude/settings.local.json
 
 # n8n build output
 n8n/dist/
