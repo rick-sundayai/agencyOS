@@ -1,7 +1,7 @@
 import type { RosterRun } from './agent-roster';
 import type { AgentThroughput } from './agent-throughput';
 import { throughputFromRuns } from './agent-throughput';
-import type { PipelineStage } from './ats-views';
+import { PIPELINE_STAGES, type PipelineStage } from './ats-views';
 
 export type DecisionForAnalytics = { tier: string; approved_by: string | null; proposed_at: Date };
 export type ApplicationForAnalytics = { stage: string };
@@ -53,13 +53,44 @@ export function computeAnalytics(input: AnalyticsInput, now: Date = new Date()):
     .filter((tier) => tierCounts.has(tier))
     .map((tier) => ({ tier, count: tierCounts.get(tier)! }));
 
+  const stageCounts = new Map<PipelineStage, number>(PIPELINE_STAGES.map((s) => [s, 0]));
+  for (const app of input.applications) {
+    const stage = app.stage as PipelineStage;
+    if (stageCounts.has(stage)) stageCounts.set(stage, stageCounts.get(stage)! + 1);
+  }
+  const stageDistribution = PIPELINE_STAGES.map((stage) => ({ stage, count: stageCounts.get(stage)! }));
+
+  const PLACEMENTS_MONTHS = 6;
+  const monthKey = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+  const months: string[] = [];
+  for (let i = PLACEMENTS_MONTHS - 1; i >= 0; i -= 1) {
+    months.push(monthKey(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1))));
+  }
+  const placementMonthCounts = new Map<string, number>(months.map((m) => [m, 0]));
+  for (const p of input.placements) {
+    if (p.start_date === null) continue;
+    const key = monthKey(new Date(`${p.start_date}T00:00:00Z`));
+    if (placementMonthCounts.has(key)) placementMonthCounts.set(key, placementMonthCounts.get(key)! + 1);
+  }
+  const placementsPerMonth = months.map((month) => ({ month, count: placementMonthCounts.get(month)! }));
+
+  const filledPlacements = input.placements.filter((p): p is PlacementForAnalytics & { start_date: string } => p.start_date !== null);
+  const timeToFillDays = filledPlacements.length === 0
+    ? null
+    : round1(
+        filledPlacements.reduce((sum, p) => {
+          const days = (new Date(`${p.start_date}T00:00:00Z`).getTime() - p.application_created_at.getTime()) / (24 * 60 * 60_000);
+          return sum + days;
+        }, 0) / filledPlacements.length,
+      );
+
   return {
     decisionsPerDay,
     autoRunRate,
     tierSplit,
-    stageDistribution: [],
-    placementsPerMonth: [],
-    timeToFillDays: null,
+    stageDistribution,
+    placementsPerMonth,
+    timeToFillDays,
     candidateSources: [],
     agentPerformance: throughputFromRuns(input.agentRuns),
   };
