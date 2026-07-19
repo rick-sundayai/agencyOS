@@ -6,7 +6,7 @@ export async function GET(req: Request): Promise<Response> {
   if (auth instanceof Response) return auth;
   const url = new URL(req.url);
   const queue = await listExecutable({
-    orgId: url.searchParams.get('org_id') ?? undefined,
+    orgId: auth.org_id,
     actionPrefix: url.searchParams.get('action_prefix') ?? undefined,
   });
   return Response.json({ queue });

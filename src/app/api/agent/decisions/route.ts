@@ -6,7 +6,8 @@ export async function POST(req: Request): Promise<Response> {
   const auth = await requireAgentKey(req);
   if (auth instanceof Response) return auth;
   try {
-    const decision = await proposeDecision(await req.json());
+    const body = await req.json();
+    const decision = await proposeDecision({ ...body, org_id: auth.org_id });
     return Response.json({ decision }, { status: 201 });
   } catch (err) {
     if (err instanceof ZodError) {
@@ -19,10 +20,8 @@ export async function POST(req: Request): Promise<Response> {
 export async function GET(req: Request): Promise<Response> {
   const auth = await requireAgentKey(req);
   if (auth instanceof Response) return auth;
-  const orgId = new URL(req.url).searchParams.get('org_id');
-  if (!orgId) return Response.json({ error: 'org_id required' }, { status: 400 });
   try {
-    return Response.json({ queue: await listQueue(orgId) });
+    return Response.json({ queue: await listQueue(auth.org_id) });
   } catch {
     return Response.json({ error: 'internal_error' }, { status: 500 });
   }

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { seedTestAgent } from '../../../../test-support/seed-agent';
+import { seedTestAgent, seedTestAgentInFreshOrg } from '../../../../test-support/seed-agent';
 import { POST, GET } from './route';
 
 let orgId: string;
@@ -45,6 +45,14 @@ describe('POST /api/agent/decisions', () => {
     const json = await res.json();
     expect(Array.isArray(json.issues)).toBe(true);
   });
+
+  it('ignores a client-supplied org_id and scopes the decision to the authenticated agent\'s org', async () => {
+    const other = await seedTestAgentInFreshOrg();
+    const res = await post({ ...validBody(), org_id: other.orgId });
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.decision.org_id).toBe(orgId);
+  });
 });
 
 describe('GET /api/agent/decisions', () => {
@@ -57,10 +65,15 @@ describe('GET /api/agent/decisions', () => {
     expect(Array.isArray(json.queue)).toBe(true);
   });
 
-  it('returns 500 on an unexpected error, e.g. a malformed org_id', async () => {
-    const res = await GET(new Request('http://test/api/agent/decisions?org_id=not-a-uuid', {
+  it('ignores a client-supplied org_id and returns the authenticated agent\'s own queue', async () => {
+    const other = await seedTestAgentInFreshOrg();
+    const posted = await post({ ...validBody(), action_class: 'client.submit_candidate' }); // tier 3 → proposed, appears in listQueue
+    const { decision } = await posted.json();
+    const res = await GET(new Request(`http://test/api/agent/decisions?org_id=${other.orgId}`, {
       headers: { 'x-agent-api-key': KEY },
     }));
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(200);
+    const { queue } = await res.json();
+    expect(queue.map((q: { id: string }) => q.id)).toContain(decision.id);
   });
 });

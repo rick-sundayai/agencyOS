@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import postgres from 'postgres';
 import { getEnv } from '../../../../../lib/env';
-import { seedTestAgent } from '../../../../../test-support/seed-agent';
+import { seedTestAgent, seedTestAgentInFreshOrg } from '../../../../../test-support/seed-agent';
 import { proposeDecision } from '../../../../../services/decision-store';
 import { GET } from './route';
 import { POST as TRANSITION } from '../[id]/transition/route';
@@ -31,6 +31,19 @@ describe('GET /api/agent/decisions/executable', () => {
     await sql`update decisions set undo_expires_at = now() - interval '1 minute' where id = ${d.id}`;
     const res = await GET(new Request(
       `http://t/api/agent/decisions/executable?org_id=${orgId}&action_prefix=comms.`,
+      { headers: { 'x-agent-api-key': KEY } },
+    ));
+    expect(res.status).toBe(200);
+    const { queue } = await res.json();
+    expect(queue.map((q: { id: string }) => q.id)).toContain(d.id);
+  });
+
+  it('ignores a client-supplied org_id and returns the authenticated agent\'s own executable queue', async () => {
+    const other = await seedTestAgentInFreshOrg();
+    const d = await proposeDecision(proposal());
+    await sql`update decisions set undo_expires_at = now() - interval '1 minute' where id = ${d.id}`;
+    const res = await GET(new Request(
+      `http://t/api/agent/decisions/executable?org_id=${other.orgId}&action_prefix=comms.`,
       { headers: { 'x-agent-api-key': KEY } },
     ));
     expect(res.status).toBe(200);
@@ -112,5 +125,17 @@ describe('POST /api/agent/runs', () => {
       body: JSON.stringify({ org_id: orgId, agent: 'sourcing', workflow: 'agencyos-sourcing', model: 'gemini-embedding-001' }),
     }));
     expect(res.status).toBe(201);
+  });
+
+  it('ignores a client-supplied org_id and scopes the run to the authenticated agent\'s org', async () => {
+    const other = await seedTestAgentInFreshOrg();
+    const res = await RUNS(new Request('http://t/api/agent/runs', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-agent-api-key': KEY },
+      body: JSON.stringify({ org_id: other.orgId, agent: 'sourcing', workflow: 'agencyos-sourcing', model: 'gemini-embedding-001' }),
+    }));
+    expect(res.status).toBe(201);
+    const { run } = await res.json();
+    expect(run.org_id).toBe(orgId);
   });
 });

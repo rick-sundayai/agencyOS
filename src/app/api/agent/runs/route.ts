@@ -6,7 +6,8 @@ export async function POST(req: Request): Promise<Response> {
   const auth = await requireAgentKey(req);
   if (auth instanceof Response) return auth;
   try {
-    const run = await insertAgentRun(await req.json());
+    const body = await req.json();
+    const run = await insertAgentRun({ ...body, org_id: auth.org_id });
     return Response.json({ run }, { status: 201 });
   } catch (err) {
     if (err instanceof ZodError) {
