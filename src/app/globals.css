@@ -454,6 +454,23 @@ main > p { color: var(--ink-500); font-size: 13.5px; margin-bottom: 4px; }
 }
 .detail-panel h2 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; color: var(--ink-500); margin: 0 0 12px; }
 
+/* Panel header with an action button beside the title (e.g. Sourcing's "Source candidates"). */
+.panel-head-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.panel-head-row h2 { margin: 0; }
+
+/* Sourcing panel status/error/note lines. */
+.sourcing-status { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--ink-500); }
+.sourcing-status .dot.working { background: var(--working); }
+.sourcing-error { color: var(--bad); font-size: 13px; font-weight: 600; margin-top: 8px; }
+.sourcing-note { font-size: 12px; color: var(--ink-400); margin-top: 6px; }
+
+/* Sourcing shortlist — one card per candidate, name/title/distance/fit in a row. */
+.shortlist { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.shortlist-card { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.shortlist-name { font-size: 14px; font-weight: 600; color: var(--ink-900); }
+.shortlist-name:hover { color: var(--accent); }
+.shortlist-title { font-size: 12px; color: var(--ink-500); }
+
 .detail-rows { list-style: none; }
 .detail-row { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--ink-100); }
 .detail-row:first-child { padding-top: 0; }

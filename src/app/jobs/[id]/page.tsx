@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { auth } from '../../../lib/auth';
 import { getJobOrderPipeline, PIPELINE_STAGES } from '../../../services/ats-views';
 import type { PipelineStage } from '../../../services/ats-views';
+import SourcingPanel from './SourcingPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,10 +25,14 @@ const FIT: Record<string, { label: string; tone: string }> = {
   no: { label: 'Poor fit', tone: 'fit-bad' },
 };
 
-export default async function JobPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function JobPage({ params, searchParams }: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ source?: string }>;
+}) {
   const session = await auth();
   if (!session) return null;
   const { id } = await params;
+  const sp = await searchParams;
   const job = await getJobOrderPipeline(session.user.org_id, id);
   if (!job) notFound();
 
@@ -71,6 +76,8 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
           <div className="htile-value"><span className="display tnum">{placed}</span></div>
         </div>
       </div>
+
+      <SourcingPanel jobId={id} autoStart={sp.source === '1'} />
 
       <section className="detail-panel">
         <h2>Requirements</h2>
