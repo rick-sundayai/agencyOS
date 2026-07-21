@@ -2,11 +2,16 @@ import { describe, it, expect, beforeAll, vi } from 'vitest';
 
 vi.mock('../../../../lib/auth', () => ({ auth: vi.fn() }));
 
+import type { Session } from 'next-auth';
 import postgres from 'postgres';
 import { auth } from '../../../../lib/auth';
 import { getEnv } from '../../../../lib/env';
 import { proposeDecision } from '../../../../services/decision-store';
 import { GET } from './route';
+
+// next-auth v5's `auth` is overloaded (session getter + route/middleware wrappers), so
+// vi.mocked resolves it to the wrong overload. Pin the mock to the no-arg session getter.
+const mockAuth = vi.mocked(auth as unknown as () => Promise<Session | null>);
 
 const sql = postgres(getEnv('DATABASE_URL'), { max: 1 });
 let orgId: string;
@@ -17,17 +22,13 @@ beforeAll(async () => {
 
 describe('GET /api/cockpit/stream', () => {
   it('returns 401 without a session', async () => {
-    vi.mocked(auth).mockResolvedValue(null);
+    mockAuth.mockResolvedValue(null);
     const res = await GET();
     expect(res.status).toBe(401);
   });
 
   it('streams the org queue as an SSE event', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: { id: 'u1', org_id: orgId },
-      expires: '',
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any);
+    mockAuth.mockResolvedValue({ user: { id: 'u1', org_id: orgId, role: 'admin' }, expires: '' });
     const d = await proposeDecision({
       org_id: orgId,
       agent: 'placement',

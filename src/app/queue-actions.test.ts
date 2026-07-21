@@ -3,11 +3,16 @@ import { describe, it, expect, beforeAll, vi } from 'vitest';
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 vi.mock('../lib/auth', () => ({ auth: vi.fn() }));
 
+import type { Session } from 'next-auth';
 import postgres from 'postgres';
 import { auth } from '../lib/auth';
 import { getEnv } from '../lib/env';
 import { proposeDecision, getDecision } from '../services/decision-store';
 import { approveDecisionAction, cancelDecisionAction } from './queue-actions';
+
+// next-auth v5's `auth` is overloaded (session getter + route/middleware wrappers), so
+// vi.mocked resolves it to the wrong overload. Pin the mock to the no-arg session getter.
+const mockAuth = vi.mocked(auth as unknown as () => Promise<Session | null>);
 
 const sql = postgres(getEnv('DATABASE_URL'), { max: 1 });
 let orgId: string;
@@ -37,11 +42,7 @@ const tier3Proposal = () => ({
 
 function loggedIn(role: 'admin' | 'recruiter' = 'admin') {
   const id = role === 'admin' ? adminUserId : recruiterUserId;
-  vi.mocked(auth).mockResolvedValue({
-    user: { id, org_id: orgId, role },
-    expires: '',
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } as any);
+  mockAuth.mockResolvedValue({ user: { id, org_id: orgId, role }, expires: '' });
 }
 
 describe('approveDecisionAction', () => {
@@ -55,7 +56,7 @@ describe('approveDecisionAction', () => {
   });
 
   it('throws without a session', async () => {
-    vi.mocked(auth).mockResolvedValue(null);
+    mockAuth.mockResolvedValue(null);
     const d = await proposeDecision(tier3Proposal());
     await expect(approveDecisionAction(d.id)).rejects.toThrow('Unauthorized');
   });
@@ -137,11 +138,7 @@ describe('role-based authorization', () => {
     const otherUserId = (await sql`
       insert into users (org_id, email, full_name, role) values
       (${otherOrg}, ${'qa-other-' + Date.now() + '@example.com'}, 'QA Other', 'admin') returning id`)[0].id;
-    vi.mocked(auth).mockResolvedValue({
-      user: { id: otherUserId, org_id: otherOrg, role: 'admin' },
-      expires: '',
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any);
+    mockAuth.mockResolvedValue({ user: { id: otherUserId, org_id: otherOrg, role: 'admin' }, expires: '' });
     const d = await proposeDecision(tier3Proposal());
     await expect(approveDecisionAction(d.id)).rejects.toThrow(`Decision not found: ${d.id}`);
     const unchanged = await getDecision(d.id);
