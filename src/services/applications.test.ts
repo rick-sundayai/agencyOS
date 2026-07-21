@@ -24,7 +24,7 @@ describe('upsertSourcedApplications', () => {
     });
 
     const res = await upsertSourcedApplications(orgId, job.id, [c1.id, c2.id]);
-    expect(res.inserted).toBe(1);
+    expect(res?.inserted).toBe(1);
 
     const [existing] = await db.select().from(applications).where(and(
       eq(applications.job_order_id, job.id), eq(applications.candidate_id, c1.id),
@@ -40,6 +40,25 @@ describe('upsertSourcedApplications', () => {
     const { orgId } = await seedTestAgentInFreshOrg();
     const { job } = await seed(orgId);
     const res = await upsertSourcedApplications(orgId, job.id, []);
-    expect(res.inserted).toBe(0);
+    expect(res?.inserted).toBe(0);
+  });
+
+  it('returns null when the job order belongs to a different org', async () => {
+    const { orgId: ownerOrgId } = await seedTestAgentInFreshOrg();
+    const { orgId: callerOrgId } = await seedTestAgentInFreshOrg();
+    const { job, c1 } = await seed(ownerOrgId);
+
+    const res = await upsertSourcedApplications(callerOrgId, job.id, [c1.id]);
+    expect(res).toBeNull();
+  });
+
+  it('throws when a candidate id belongs to a different org', async () => {
+    const { orgId: ownerOrgId } = await seedTestAgentInFreshOrg();
+    const { orgId: otherOrgId } = await seedTestAgentInFreshOrg();
+    const { job, c1 } = await seed(ownerOrgId);
+    const { c1: foreignCandidate } = await seed(otherOrgId);
+
+    await expect(upsertSourcedApplications(ownerOrgId, job.id, [c1.id, foreignCandidate.id]))
+      .rejects.toThrow(/candidate/i);
   });
 });

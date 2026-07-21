@@ -34,4 +34,29 @@ describe('POST /api/agent/applications', () => {
     const { key } = await seedTestAgentInFreshOrg();
     expect((await post({ job_order_id: 'not-a-uuid', candidate_ids: [] }, key)).status).toBe(400);
   });
+
+  it('404s when job_order_id belongs to a different org', async () => {
+    const owner = await seedTestAgentInFreshOrg();
+    const requester = await seedTestAgentInFreshOrg();
+    const [job] = await db.insert(job_orders).values({
+      org_id: owner.orgId, title: `Job ${randomUUID()}`, kind: 'contract',
+    }).returning();
+    const [cand] = await db.insert(candidates).values({ org_id: owner.orgId, full_name: 'Ada' }).returning();
+
+    const res = await post({ job_order_id: job.id, candidate_ids: [cand.id] }, requester.key);
+    expect(res.status).toBe(404);
+  });
+
+  it('400s when a candidate_id belongs to a different org', async () => {
+    const { orgId, key } = await seedTestAgentInFreshOrg();
+    const other = await seedTestAgentInFreshOrg();
+    const [job] = await db.insert(job_orders).values({
+      org_id: orgId, title: `Job ${randomUUID()}`, kind: 'contract',
+    }).returning();
+    const [foreignCand] = await db.insert(candidates)
+      .values({ org_id: other.orgId, full_name: 'Foreign' }).returning();
+
+    const res = await post({ job_order_id: job.id, candidate_ids: [foreignCand.id] }, key);
+    expect(res.status).toBe(400);
+  });
 });
