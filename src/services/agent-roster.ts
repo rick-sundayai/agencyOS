@@ -65,6 +65,29 @@ export function rosterFromAgents(
   return { entries, online, total: entries.length };
 }
 
+/**
+ * The sidebar tile's view of the roster: the Agents needing attention (stalled or
+ * needs-you, stalled first because it's the alarm), plus counts of the healthy rest.
+ * A pure selector the dumb tile renders directly — no per-agent roll-call of the calm.
+ */
+export type RosterView = {
+  attention: RosterEntry[];
+  running: number;
+  idle: number;
+};
+
+// Attention rows lead with the alarm: every stalled Agent before every needs-you one.
+const ATTENTION_ORDER: Record<RosterStatus, number> = { stalled: 0, review: 1, working: 2, idle: 2 };
+
+export function rosterView(roster: Roster): RosterView {
+  const attention = roster.entries
+    .filter((e) => e.status === 'stalled' || e.status === 'review')
+    .sort((a, b) => ATTENTION_ORDER[a.status] - ATTENTION_ORDER[b.status]);
+  const running = roster.entries.filter((e) => e.status === 'working').length;
+  const idle = roster.entries.filter((e) => e.status === 'idle').length;
+  return { attention, running, idle };
+}
+
 /** Fetch the org's recent Agent runs and derive the live roster. */
 export async function fetchRecentRuns(orgId: string, now: Date = new Date()): Promise<RosterRun[]> {
   const since = new Date(now.getTime() - ROSTER_WINDOW_MS);

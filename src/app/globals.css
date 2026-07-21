@@ -275,6 +275,13 @@ main > p { color: var(--ink-500); font-size: 13.5px; margin-bottom: 4px; }
 .roster-ico { flex-shrink: 0; width: 22px; height: 22px; border-radius: var(--r-sm); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; line-height: 1; }
 .roster-name { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; color: var(--ink-700); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .roster-row.stalled .roster-name { color: var(--bad); }
+.roster-row.review .roster-name { color: var(--review); }
+/* The attention list drills to the Agents page; the whole block is one quiet target. */
+.roster-attention { display: block; text-decoration: none; color: inherit; border-radius: var(--r-sm); }
+.roster-attention:hover .roster-name { text-decoration: underline; }
+.roster-status { flex-shrink: 0; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+.roster-row.stalled .roster-status { color: var(--bad); }
+.roster-row.review .roster-status { color: var(--review); }
 .roster-dot { width: 7px; height: 7px; flex-shrink: 0; }
 .roster-working { background: var(--working); }
 .roster-review { background: var(--review); }

@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { rosterFromAgents, rosterFromRuns, type RosterRun } from './agent-roster';
+import {
+  rosterFromAgents,
+  rosterFromRuns,
+  rosterView,
+  type Roster,
+  type RosterEntry,
+  type RosterRun,
+} from './agent-roster';
 
 const NOW = new Date('2026-07-18T12:00:00Z');
 const minsAgo = (m: number) => new Date(NOW.getTime() - m * 60_000);
@@ -112,5 +119,62 @@ describe('rosterFromAgents', () => {
     );
     expect(roster.online).toBe(1);
     expect(roster.total).toBe(2);
+  });
+});
+
+describe('rosterView', () => {
+  const roster = (entries: RosterEntry[]): Roster => ({
+    entries,
+    total: entries.length,
+    online: entries.filter((e) => e.status !== 'stalled').length,
+  });
+
+  it('leaves attention empty and counts running/idle when all healthy', () => {
+    const view = rosterView(
+      roster([
+        { agent: 'Atlas', status: 'working' },
+        { agent: 'Scout', status: 'working' },
+        { agent: 'Sift', status: 'idle' },
+      ]),
+    );
+    expect(view.attention).toEqual([]);
+    expect(view.running).toBe(2);
+    expect(view.idle).toBe(1);
+  });
+
+  it('surfaces a stalled agent in attention', () => {
+    const view = rosterView(
+      roster([
+        { agent: 'Scout', status: 'idle' },
+        { agent: 'Sentry', status: 'stalled' },
+      ]),
+    );
+    expect(view.attention).toEqual([{ agent: 'Sentry', status: 'stalled' }]);
+    expect(view.running).toBe(0);
+    expect(view.idle).toBe(1);
+  });
+
+  it('orders stalled before review and keeps idle out of attention', () => {
+    const view = rosterView(
+      roster([
+        { agent: 'Atlas', status: 'review' },
+        { agent: 'Echo', status: 'idle' },
+        { agent: 'Scout', status: 'working' },
+        { agent: 'Sentry', status: 'stalled' },
+      ]),
+    );
+    expect(view.attention).toEqual([
+      { agent: 'Sentry', status: 'stalled' },
+      { agent: 'Atlas', status: 'review' },
+    ]);
+    expect(view.running).toBe(1);
+    expect(view.idle).toBe(1);
+  });
+
+  it('returns empty attention and zero counts for an empty roster', () => {
+    const view = rosterView(roster([]));
+    expect(view.attention).toEqual([]);
+    expect(view.running).toBe(0);
+    expect(view.idle).toBe(0);
   });
 });
