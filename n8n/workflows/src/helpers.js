@@ -5,6 +5,17 @@ const API = $env.AGENCY_API_URL;
 const HEADERS = { 'x-agent-api-key': $env.AGENT_API_KEY };
 const apiGet = (path, qs) => http({ method: 'GET', url: API + path, headers: HEADERS, qs, json: true });
 const apiPost = (path, body) => http({ method: 'POST', url: API + path, headers: HEADERS, body, json: true });
+const apiPatch = (path, body) => http({ method: 'PATCH', url: API + path, headers: HEADERS, body, json: true });
+// Sourcing tuning knobs. MAX_DISTANCE is cosine distance (lower = closer); a run with
+// fewer than MIN_GOOD_MATCHES results under it is "thin" and triggers the JobDiva pull.
+const MIN_GOOD_MATCHES = 10;
+const MAX_DISTANCE = 0.55;
+// Advance a sourcing_runs row; no-op without a run id (orchestrator-triggered runs),
+// and never let a progress-report failure kill the run itself.
+const updateRun = async (runId, patch) => {
+  if (!runId) return;
+  try { await apiPatch('/api/agent/sourcing-runs/' + runId, patch); } catch (e) { /* non-fatal */ }
+};
 
 const geminiPost = (model, action, body) => http({
   method: 'POST',
