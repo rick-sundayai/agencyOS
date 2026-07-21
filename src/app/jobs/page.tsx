@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { auth } from '../../lib/auth';
 import { listJobOrders } from '../../services/ats-views';
+import SourceFromJobDiva from './SourceFromJobDiva';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +27,7 @@ export default async function JobsPage() {
         <p className="page-lede">
           Every active mandate the agents are working — coverage and pipeline depth at a glance.
         </p>
+        <SourceFromJobDiva />
       </div>
 
       <div className="rec-stats">
