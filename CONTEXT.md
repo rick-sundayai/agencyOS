@@ -48,6 +48,24 @@ An autonomous worker that performs recruiting workflows and proposes Decisions. 
 
 A single execution of an agent workflow, recording the model used, tokens, status, and any Decision it produced. Runs are the raw material for an agent's live status.
 
+### Sourcing run
+
+One recruiter-visible execution of the sourcing flow for a job order, created when a
+recruiter clicks **Source candidates** (or imports a JobDiva job number). Tracks a
+`phase` (`queued → searching_pool → checking_jobdiva → embedding_new → shortlisting →
+screening → done | failed`) that the n8n sourcing workflow advances and the job page
+polls.
+
+**Invariants:**
+- At most one non-terminal Sourcing run per job order at a time.
+- The internal pool is always searched before JobDiva; JobDiva is only called when
+  fewer than 10 good matches (cosine distance < 0.55) exist internally.
+- A JobDiva failure never fails the run — it degrades to internal-only results.
+- A non-terminal run untouched for 10 minutes is presumed dead and reported failed.
+
+**Distinguishes from:** Agent run — an Agent run is one model-call's telemetry; a
+Sourcing run is the recruiter-facing progress record spanning the whole flow.
+
 ### Agent roster
 
 The always-visible list of agents in the Control Room sidebar with their current status (working / review / idle / stalled). Its job is to make a stalled agent obvious at a glance.
