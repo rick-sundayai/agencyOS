@@ -1,4 +1,4 @@
-const KEYS = ['DATABASE_URL', 'AUTH_SECRET'] as const;
+const KEYS = ['DATABASE_URL', 'AUTH_SECRET', 'N8N_WEBHOOK_URL'] as const;
 export type EnvKey = (typeof KEYS)[number];
 
 export function getEnv(key: EnvKey): string {

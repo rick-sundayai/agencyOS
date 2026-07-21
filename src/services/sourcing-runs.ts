@@ -1,6 +1,6 @@
-import { and, desc, eq, sql as dsql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql as dsql } from 'drizzle-orm';
 import { db } from '../db/client';
-import { sourcing_runs } from '../db/schema';
+import { decisions, scores, sourcing_runs } from '../db/schema';
 
 export type SourcingPhase =
   | 'queued' | 'searching_pool' | 'checking_jobdiva' | 'embedding_new'
@@ -73,4 +73,46 @@ export async function getLatestSourcingRun(
     });
   }
   return row;
+}
+
+export type ShortlistEntry = {
+  candidate_id: string;
+  full_name: string;
+  current_title: string | null;
+  distance: number;
+  fit_rating: string | null;
+};
+
+/** The recruiter-facing shortlist: the latest executed source.shortlist decision's
+ * ranked payload, decorated with the latest screening fit per candidate. */
+export async function getSourcingShortlist(
+  orgId: string, jobOrderId: string,
+): Promise<ShortlistEntry[] | null> {
+  const [d] = await db.select().from(decisions).where(and(
+    eq(decisions.org_id, orgId),
+    eq(decisions.job_order_id, jobOrderId),
+    eq(decisions.action_class, 'source.shortlist'),
+    eq(decisions.state, 'executed'),
+  )).orderBy(desc(decisions.proposed_at)).limit(1);
+  if (!d) return null;
+
+  const ranked = (d.payload as { ranked?: Array<{
+    candidate_id: string; full_name: string; current_title: string | null; distance: number;
+  }> }).ranked ?? [];
+  if (ranked.length === 0) return [];
+
+  const scoreRows = await db.select({
+    candidate_id: scores.candidate_id, fit_rating: scores.fit_rating, created_at: scores.created_at,
+  }).from(scores).where(and(
+    eq(scores.org_id, orgId), eq(scores.job_order_id, jobOrderId),
+    inArray(scores.candidate_id, ranked.map((r) => r.candidate_id)),
+  ));
+  const latestFit = new Map<string, { at: Date; fit: string }>();
+  for (const s of scoreRows) {
+    const prev = latestFit.get(s.candidate_id);
+    if (!prev || s.created_at > prev.at) latestFit.set(s.candidate_id, { at: s.created_at, fit: s.fit_rating });
+  }
+  return ranked.map((r) => ({
+    ...r, fit_rating: latestFit.get(r.candidate_id)?.fit ?? null,
+  }));
 }
