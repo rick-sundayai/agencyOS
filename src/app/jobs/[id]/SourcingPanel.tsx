@@ -88,6 +88,8 @@ export default function SourcingPanel({ jobId, autoStart }: { jobId: string; aut
   useEffect(() => {
     if (!autoStart || !loaded || autoFired.current) return;
     autoFired.current = true;
+    // start() is async and only setStates after an await — same as the poll effect above.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!active) void start();
   }, [autoStart, loaded, active, start]);
 
