@@ -120,3 +120,27 @@ export async function upsertEmbeddings(input: unknown): Promise<{ inserted: numb
     return { inserted: p.chunks.length };
   });
 }
+
+/** Read back stored embedding chunks (e.g. so a re-source can reuse the job-order
+ * embedding instead of re-calling the embedding API when content is unchanged).
+ * halfvec comes back from postgres as a '[1,2,...]' string — parse it. */
+export async function getStoredEmbeddings(
+  orgId: string,
+  subjectType: 'candidate_document' | 'job_order',
+  subjectId: string,
+): Promise<Array<{ chunk_index: number; content_hash: string; embedding: number[] }>> {
+  const rows = await db.select({
+    chunk_index: embeddings.chunk_index,
+    content_hash: embeddings.content_hash,
+    embedding: embeddings.embedding,
+  }).from(embeddings).where(and(
+    eq(embeddings.org_id, orgId),
+    eq(embeddings.subject_type, subjectType),
+    eq(embeddings.subject_id, subjectId),
+  )).orderBy(embeddings.chunk_index);
+  return rows.map((r) => ({
+    chunk_index: r.chunk_index,
+    content_hash: r.content_hash,
+    embedding: typeof r.embedding === 'string' ? JSON.parse(r.embedding) : r.embedding,
+  }));
+}
