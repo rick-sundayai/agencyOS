@@ -81,12 +81,14 @@ export default function SourcingPanel({ jobId, autoStart }: { jobId: string; aut
   }, [active, poll]);
 
   // ?source=1 after a JobDiva import: fire once, only when nothing is already running
-  // (the server's 409 guard makes a stale bookmark harmless anyway).
+  // (the server's 409 guard makes a stale bookmark harmless anyway). The one-shot
+  // is spent as soon as `loaded` first becomes true, regardless of outcome — so if
+  // a run is already active at that moment, we never start a redundant one later
+  // when it transitions to done/failed while this component stays mounted.
   useEffect(() => {
-    if (autoStart && loaded && !active && !autoFired.current) {
-      autoFired.current = true;
-      void start();
-    }
+    if (!autoStart || !loaded || autoFired.current) return;
+    autoFired.current = true;
+    if (!active) void start();
   }, [autoStart, loaded, active, start]);
 
   const jd = run?.stats?.jobdiva_error;
