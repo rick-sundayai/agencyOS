@@ -4,3 +4,4 @@ export * from './ats';
 export * from './agentic';
 export * from './intelligence';
 export * from './migration';
+export * from './sourcing';
