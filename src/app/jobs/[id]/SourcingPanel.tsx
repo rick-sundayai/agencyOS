@@ -43,9 +43,10 @@ export default function SourcingPanel({ jobId, autoStart }: { jobId: string; aut
   // Keep the latest router in a ref rather than a poll() dependency: some
   // useRouter() implementations (and this component's test mock) return a
   // new object identity every render, which would otherwise recreate poll()
-  // on every render and re-fire the mount effect in a loop.
+  // on every render and re-fire the mount effect in a loop. Synced in an
+  // effect (not during render) per the react-hooks/refs rule.
   const routerRef = useRef(router);
-  routerRef.current = router;
+  useEffect(() => { routerRef.current = router; }, [router]);
 
   const active = run !== null && !TERMINAL.has(run.phase);
 
@@ -66,6 +67,11 @@ export default function SourcingPanel({ jobId, autoStart }: { jobId: string; aut
     await poll();
   }, [jobId, poll]);
 
+  // Standard fetch-on-mount pattern (see react.dev "Fetching data"): poll()
+  // is async and only calls setState after its first await, so this doesn't
+  // cause the synchronous cascading re-render the rule guards against — the
+  // compiler's static analysis can't see that timing, hence the disable.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void poll(); }, [poll]);
 
   useEffect(() => {
