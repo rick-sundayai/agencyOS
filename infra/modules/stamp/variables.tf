@@ -42,6 +42,11 @@ variable "db_tier" {
   default = "db-g1-small"
 }
 
+variable "sql_deletion_protection" {
+  type    = bool
+  default = true
+}
+
 variable "deployer_sa" {
   type = string # from ops outputs
 }

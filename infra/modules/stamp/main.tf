@@ -76,7 +76,7 @@ resource "google_sql_database_instance" "pg" {
       point_in_time_recovery_enabled = true
     }
   }
-  deletion_protection = true
+  deletion_protection = var.sql_deletion_protection
   depends_on          = [google_service_networking_connection.psa]
 }
 
