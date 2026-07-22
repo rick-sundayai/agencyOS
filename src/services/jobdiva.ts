@@ -161,7 +161,10 @@ export function makeJobDivaClient(cfg: {
     async searchCandidates(jobNumber, opts) {
       const internalId = await resolveInternalJobId(jobNumber);
       if (internalId == null) return [];
-      const resumeCount = String(opts?.resumeCount ?? 0);
+      // Default to 10, not 0: JobAgentSearch treats resumeCount=0 as "no matches",
+      // so a caller that omits the option must still get a useful pull, never an
+      // empty one.
+      const resumeCount = String(opts?.resumeCount ?? 10);
       const res = await request(ENDPOINTS.jobAgentSearch, { jobId: internalId, resumeCount });
       if (!res.ok) throw new Error(`jobdiva searchCandidates failed: ${res.status}`);
       const data = biRows(await res.json());

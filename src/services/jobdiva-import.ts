@@ -14,6 +14,11 @@ import type { JobDivaClient } from './jobdiva';
  * hundreds of resume pulls. */
 export const RESUME_FETCH_CAP = 25;
 
+/** How many candidates to ask JobAgentSearch for. The endpoint's `resumeCount`
+ * param defaults to 0 (i.e. no matches) when unset, so this must be sent
+ * explicitly or the pull comes back empty. Ten for now — the thin-pool top-up. */
+export const JOBDIVA_SEARCH_RESUME_COUNT = 10;
+
 // A "usable" email from CandidateDetail: non-empty after trim, and shaped like an email.
 const EmailSchema = z.email();
 
@@ -40,7 +45,9 @@ export async function importCandidatesForJob(
   // searchCandidates runs JobDiva's own job-to-candidate matching (JobAgentSearch)
   // and needs the job's JobDiva reference — jobs never sourced from/linked to
   // JobDiva have no jobdiva_id, so there's nothing to match against there.
-  const hits = job.jobdiva_id ? await deps.jobdiva.searchCandidates(job.jobdiva_id) : [];
+  const hits = job.jobdiva_id
+    ? await deps.jobdiva.searchCandidates(job.jobdiva_id, { resumeCount: JOBDIVA_SEARCH_RESUME_COUNT })
+    : [];
   if (runId) {
     await updateSourcingRun(input.org_id, runId, {
       phase: 'embedding_new', stats: { jobdiva_found: hits.length },
