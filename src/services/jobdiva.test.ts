@@ -90,6 +90,27 @@ describe('makeJobDivaClient', () => {
     expect(await client.searchCandidates('no-such-job')).toEqual([]);
   });
 
+  it('sends resumeCount as a query param when opts.resumeCount is passed', async () => {
+    let capturedUrl = '';
+    const fetchFn = fakeFetch((url) => {
+      if (url.includes('/api/authenticate')) return { body: 'tok' };
+      capturedUrl = url;
+      return { body: [] };
+    });
+    const client = makeJobDivaClient({ ...CFG, fetchFn });
+    await client.searchCandidates('42', { resumeCount: 5 });
+    expect(capturedUrl).toContain('resumeCount=5');
+  });
+
+  it('throws on a non-404 error status from JobAgentSearch', async () => {
+    const fetchFn = fakeFetch((url) => {
+      if (url.includes('/api/authenticate')) return { body: 'tok' };
+      return { status: 500, body: 'boom' };
+    });
+    const client = makeJobDivaClient({ ...CFG, fetchFn });
+    await expect(client.searchCandidates('42')).rejects.toThrow(/searchCandidates failed: 500/);
+  });
+
   it('maps a job and returns null for an unknown job number', async () => {
     // Pins the live-verified contract (2026-07-22, job 23-00053): JobDetail is
     // queried by `jobdivaref` (the agency-facing job number), wraps rows in

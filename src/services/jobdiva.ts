@@ -161,24 +161,18 @@ export function makeJobDivaClient(cfg: {
       const res = await request(ENDPOINTS.jobAgentSearch, { jobId: internalId, resumeCount });
       if (!res.ok) throw new Error(`jobdiva searchCandidates failed: ${res.status}`);
       const data = biRows(await res.json());
-      const field = (row: Record<string, unknown>, ...names: string[]): unknown => {
-        for (const n of names) if (row[n] != null) return row[n];
-        return null;
-      };
-      return data.map((c) => {
-        const id = field(c, 'id', 'ID', 'candidateId', 'CANDIDATEID');
-        const city = field(c, 'city', 'CITY') as string | null;
-        const state = field(c, 'state', 'STATE', 'PROVINCE') as string | null;
-        return {
-          jobdiva_id: String(id),
-          full_name: [field(c, 'first name', 'firstName', 'FIRSTNAME'), field(c, 'last name', 'lastName', 'LASTNAME')]
-            .filter(Boolean).join(' ') || String(id),
-          email: field(c, 'email', 'EMAIL') as string | null,
-          phone: field(c, 'phone 1', 'phone', 'PHONE', 'PHONE1') as string | null,
-          current_title: field(c, 'title', 'currentTitle', 'TITLE', 'ABSTRACT') as string | null,
-          location: [city, state].filter(Boolean).join(', ') || null,
-        };
-      });
+      // Exact keys confirmed live 2026-07-22 (job 23-00053) — no speculative
+      // fallbacks: an unmapped field on future API drift should surface as an
+      // obviously-wrong/missing value, not silently resolve to some other field.
+      return data.map((c) => ({
+        jobdiva_id: String(c.CANDIDATEID),
+        full_name: [c.FIRSTNAME, c.LASTNAME].filter(Boolean).join(' ') || String(c.CANDIDATEID),
+        // JobAgentSearch's match summary has no email field at all.
+        email: null,
+        phone: c.PHONE != null ? String(c.PHONE) : null,
+        current_title: c.ABSTRACT != null ? String(c.ABSTRACT) : null,
+        location: [c.CITY, c.PROVINCE].filter(Boolean).join(', ') || null,
+      }));
     },
 
     async getResumeText(jobdivaCandidateId) {
@@ -186,15 +180,16 @@ export function makeJobDivaClient(cfg: {
       if (resumesRes.status === 404) return null;
       if (!resumesRes.ok) throw new Error(`jobdiva getResume (resumes list) failed: ${resumesRes.status}`);
       const resumeRows = biRows(await resumesRes.json());
-      const resumeId = resumeRows[0]?.RESUMEID ?? resumeRows[0]?.ID ?? resumeRows[0]?.resumeId;
+      // Exact key confirmed live 2026-07-22 — see searchCandidates above for why
+      // no fallback chain.
+      const resumeId = resumeRows[0]?.RESUMEID;
       if (resumeId == null) return null;
 
       const textRes = await request(ENDPOINTS.resumesText, multiParam('resumeIds', [String(resumeId)]));
       if (textRes.status === 404) return null;
       if (!textRes.ok) throw new Error(`jobdiva getResume (text) failed: ${textRes.status}`);
       const textRows = biRows(await textRes.json());
-      const row = textRows[0];
-      const text = row?.PLAINTEXT ?? row?.RESUMETEXT ?? row?.resumeText ?? row?.TEXT;
+      const text = textRows[0]?.PLAINTEXT;
       const trimmed = text != null ? String(text).trim() : '';
       return trimmed ? trimmed : null;
     },
