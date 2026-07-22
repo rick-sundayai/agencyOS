@@ -10,7 +10,8 @@ export const sourcing_runs = pgTable('sourcing_runs', {
   org_id: uuid('org_id').notNull().references(() => orgs.id),
   job_order_id: uuid('job_order_id').notNull().references(() => job_orders.id),
   requested_by: uuid('requested_by').references(() => users.id),
-  // queued | searching_pool | checking_jobdiva | embedding_new | shortlisting | screening | done | failed
+  // Phase vocabulary is owned by SOURCING_PHASES in src/contracts/sourcing.ts (the source
+  // of truth); the agent PATCH route validates writes against it.
   phase: text('phase').notNull().default('queued'),
   stats: jsonb('stats').notNull().default(sql`'{}'::jsonb`),
   error: text('error'),

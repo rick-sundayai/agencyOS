@@ -5,8 +5,9 @@ import { db } from '../db/client';
 import { job_orders, sourcing_runs } from '../db/schema';
 import { seedTestAgentInFreshOrg } from '../test-support/seed-agent';
 import {
-  createSourcingRun, updateSourcingRun, getLatestSourcingRun, TERMINAL_PHASES,
+  createSourcingRun, updateSourcingRun, getLatestSourcingRun,
 } from './sourcing-runs';
+import { isTerminalPhase } from '../contracts/sourcing';
 
 async function seedJob(orgId: string): Promise<string> {
   const [row] = await db.insert(job_orders).values({
@@ -86,6 +87,6 @@ describe('getLatestSourcingRun', () => {
     const latest = await getLatestSourcingRun(orgId, jobId);
     expect(latest?.phase).toBe('failed');
     expect(latest?.error).toMatch(/timed out/i);
-    expect(TERMINAL_PHASES.has('failed')).toBe(true);
+    expect(isTerminalPhase('failed')).toBe(true);
   });
 });

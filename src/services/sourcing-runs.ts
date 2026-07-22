@@ -1,20 +1,13 @@
 import { and, desc, eq, inArray, sql as dsql } from 'drizzle-orm';
 import { db } from '../db/client';
 import { decisions, scores, sourcing_runs } from '../db/schema';
-
-export type SourcingPhase =
-  | 'queued' | 'searching_pool' | 'checking_jobdiva' | 'embedding_new'
-  | 'shortlisting' | 'screening' | 'done' | 'failed';
-
-export const TERMINAL_PHASES: ReadonlySet<SourcingPhase> = new Set(['done', 'failed']);
+import { type SourcingPhase, isTerminalPhase } from '../contracts/sourcing';
 
 /** A non-terminal run untouched this long is presumed dead (n8n crashed before its
  * failure handler could run) and is persisted to 'failed' on read. */
 export const STALE_MINUTES = 10;
 
 export type SourcingRunRow = typeof sourcing_runs.$inferSelect;
-
-const TERMINAL = ['done', 'failed'] as const;
 
 export async function createSourcingRun(input: {
   org_id: string; job_order_id: string; requested_by: string | null;
@@ -65,7 +58,7 @@ export async function getLatestSourcingRun(
   )).orderBy(desc(sourcing_runs.created_at)).limit(1);
   if (!row) return null;
 
-  const isTerminal = (TERMINAL as readonly string[]).includes(row.phase);
+  const isTerminal = isTerminalPhase(row.phase);
   const staleMs = STALE_MINUTES * 60_000;
   if (!isTerminal && Date.now() - row.updated_at.getTime() > staleMs) {
     return updateSourcingRun(orgId, row.id, {

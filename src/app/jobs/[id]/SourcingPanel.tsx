@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { isTerminalPhase } from '../../../contracts/sourcing';
+import { phaseLabel } from '../../../components/sourcing-phases';
+import type { ShortlistEntry } from '../../../services/sourcing-runs';
 
 type Run = {
   id: string;
@@ -10,22 +13,8 @@ type Run = {
   stats: Record<string, number | string | undefined> & { jobdiva_error?: string };
   error: string | null;
 };
-type ShortlistEntry = {
-  candidate_id: string; full_name: string; current_title: string | null;
-  distance: number; fit_rating: string | null;
-};
 
 const POLL_MS = 2500;
-const TERMINAL = new Set(['done', 'failed']);
-
-const PHASE_LABEL: Record<string, string> = {
-  queued: 'Queued…',
-  searching_pool: 'Searching internal pool…',
-  checking_jobdiva: 'Checking JobDiva…',
-  embedding_new: 'Embedding new candidates…',
-  shortlisting: 'Building shortlist…',
-  screening: 'Handing off to screening…',
-};
 
 const FIT: Record<string, { label: string; tone: string }> = {
   yes: { label: 'Strong fit', tone: 'fit-good' },
@@ -48,7 +37,7 @@ export default function SourcingPanel({ jobId, autoStart }: { jobId: string; aut
   const routerRef = useRef(router);
   useEffect(() => { routerRef.current = router; }, [router]);
 
-  const active = run !== null && !TERMINAL.has(run.phase);
+  const active = run !== null && !isTerminalPhase(run.phase);
 
   const poll = useCallback(async () => {
     const res = await fetch(`/api/jobs/${jobId}/source`);
@@ -109,10 +98,10 @@ export default function SourcingPanel({ jobId, autoStart }: { jobId: string; aut
         </button>
       </div>
 
-      {run && !TERMINAL.has(run.phase) && (
+      {run && !isTerminalPhase(run.phase) && (
         <p className="sourcing-status">
           <span className="dot working" aria-hidden="true" />
-          {PHASE_LABEL[run.phase] ?? run.phase}
+          {phaseLabel(run.phase)}
           {typeof run.stats?.pool_matches === 'number' && ` · ${run.stats.pool_matches} pool matches`}
           {typeof run.stats?.jobdiva_found === 'number' && ` · ${run.stats.jobdiva_found} JobDiva hits`}
           {typeof run.stats?.embedded === 'number' && ` · ${run.stats.embedded} embedded`}
