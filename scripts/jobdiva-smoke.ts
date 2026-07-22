@@ -14,7 +14,12 @@ async function main() {
 
   const candidates = await client.searchCandidates(jobNumber);
   console.log(`searchCandidates: ${candidates.length} hits`);
-  console.log(JSON.stringify(candidates.slice(0, 3), null, 2));
+  // Field presence only — candidate PII (email/phone/name values) must never be printed.
+  console.log(candidates.slice(0, 3).map((c) => ({
+    jobdiva_id: c.jobdiva_id,
+    has_name: c.full_name !== '', has_email: c.email !== null, has_phone: c.phone !== null,
+    has_title: c.current_title !== null, has_location: c.location !== null,
+  })));
 
   if (candidates[0]) {
     const resume = await client.getResumeText(candidates[0].jobdiva_id);
