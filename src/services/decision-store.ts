@@ -6,6 +6,34 @@ import { canTransition } from '../contracts/transitions';
 
 export type DecisionRow = typeof decisions.$inferSelect;
 
+/**
+ * Typed failures for transitionDecision/getDecision-adjacent lookups, so callers branch on
+ * `instanceof` instead of re-parsing `.message` text (candidate #1 from the 2026-07-18
+ * architecture review). Message text is preserved exactly as before — only the type used
+ * to classify the failure changed — so existing `toThrow('...')`/`toMatch(...)` test
+ * assertions on the message itself still hold.
+ */
+export class DecisionNotFoundError extends Error {
+  constructor(id: string) {
+    super(`Decision not found: ${id}`);
+    this.name = 'DecisionNotFoundError';
+  }
+}
+
+export class InvalidTransitionError extends Error {
+  constructor(from: DecisionState, to: DecisionState) {
+    super(`Invalid transition ${from} → ${to}`);
+    this.name = 'InvalidTransitionError';
+  }
+}
+
+export class ConcurrentTransitionError extends Error {
+  constructor(id: string, from: DecisionState) {
+    super(`Decision ${id} was already transitioned by another process (expected state ${from})`);
+    this.name = 'ConcurrentTransitionError';
+  }
+}
+
 async function getPolicy(orgId: string, actionClass: ActionClass) {
   // Money action classes never graduate — clamp in code, not just seed data (ADR-0001).
   if ((MONEY_ACTION_CLASSES as readonly ActionClass[]).includes(actionClass)) {
@@ -53,9 +81,9 @@ export async function transitionDecision(
 ): Promise<DecisionRow> {
   const [current] = await db.select().from(decisions)
     .where(and(eq(decisions.id, id), eq(decisions.org_id, orgId)));
-  if (!current) throw new Error(`Decision not found: ${id}`);
+  if (!current) throw new DecisionNotFoundError(id);
   const from = current.state as DecisionState;
-  if (!canTransition(from, to)) throw new Error(`Invalid transition ${from} → ${to}`);
+  if (!canTransition(from, to)) throw new InvalidTransitionError(from, to);
 
   const patch: Partial<typeof decisions.$inferInsert> = { state: to };
   if (to === 'approved') { patch.approved_by = actor; patch.decided_at = new Date(); }
@@ -80,7 +108,7 @@ export async function transitionDecision(
     .where(and(eq(decisions.id, id), eq(decisions.org_id, orgId), eq(decisions.state, from)))
     .returning();
   if (!row) {
-    throw new Error(`Decision ${id} was already transitioned by another process (expected state ${from})`);
+    throw new ConcurrentTransitionError(id, from);
   }
   return row;
 }

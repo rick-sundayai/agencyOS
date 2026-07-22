@@ -59,4 +59,12 @@ describe('POST /api/agent/decisions/[id]/transition', () => {
     const unchanged = await getDecision(d.id);
     expect(unchanged?.state).toBe('proposed');
   });
+
+  it('returns 409 for an illegal transition (InvalidTransitionError)', async () => {
+    const d = await proposeDecision(tier3Proposal()); // starts 'proposed'
+    const res = await post(d.id, { to: 'executed' }); // proposed can only go to approved/cancelled
+    expect(res.status).toBe(409);
+    const json = await res.json();
+    expect(json.error).toMatch(/Invalid transition/);
+  });
 });

@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import postgres from 'postgres';
 import { getEnv } from '../lib/env';
-import { proposeDecision, transitionDecision, listQueue, getDecision, listExecutable } from './decision-store';
+import {
+  proposeDecision, transitionDecision, listQueue, getDecision, listExecutable,
+  DecisionNotFoundError, InvalidTransitionError, ConcurrentTransitionError,
+} from './decision-store';
 
 const sql = postgres(getEnv('DATABASE_URL'), { max: 1 });
 let orgId: string;
@@ -69,6 +72,14 @@ describe('transitionDecision', () => {
     const d = await proposeDecision(proposal('client.submit_candidate'));
     await expect(transitionDecision(d.id, 'executed', 'user-1', orgId))
       .rejects.toThrow('Invalid transition proposed → executed');
+    await expect(transitionDecision(d.id, 'executed', 'user-1', orgId))
+      .rejects.toBeInstanceOf(InvalidTransitionError);
+  });
+
+  it('rejects a transition on an unknown decision id', async () => {
+    const missingId = '00000000-0000-7000-8000-000000000000';
+    await expect(transitionDecision(missingId, 'approved', 'user-1', orgId))
+      .rejects.toBeInstanceOf(DecisionNotFoundError);
   });
 
   it('cancelling a proposed (never-approved) decision backfills decided_at and stamps cancelled_by', async () => {
@@ -105,6 +116,7 @@ describe('transitionDecision', () => {
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
     const rejected = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
     expect(rejected.reason.message).toMatch(/already transitioned by another process/);
+    expect(rejected.reason).toBeInstanceOf(ConcurrentTransitionError);
   });
 });
 
