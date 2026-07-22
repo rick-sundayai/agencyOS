@@ -51,6 +51,8 @@ export type SourcingStats = {
   skipped?: number;
   shortlisted?: number;
   jobdiva_error?: string;
+  /** JobDiva hits excluded at import because CandidateDetail had no usable email. */
+  no_email?: number;
 };
 
 /**

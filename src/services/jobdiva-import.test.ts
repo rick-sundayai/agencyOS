@@ -1,21 +1,26 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { db } from '../db/client';
 import { candidates, candidate_documents, embeddings, job_orders } from '../db/schema';
 import { seedTestAgentInFreshOrg } from '../test-support/seed-agent';
 import { importCandidatesForJob } from './jobdiva-import';
+import { ingestCandidate } from './ingest';
 import type { JobDivaClient, JobDivaCandidate } from './jobdiva';
 
 const VEC = new Array(3072).fill(0.1);
 const fakeEmbed = async () => VEC;
 
 function fakeJobDiva(hits: JobDivaCandidate[], resumes: Record<string, string | null>): JobDivaClient {
+  const byId = new Map(hits.map((h) => [h.jobdiva_id, h]));
   return {
     getJob: async () => null,
     searchCandidates: async () => hits,
     getResumeText: async (id) => resumes[id] ?? null,
-    getCandidateContact: async () => ({ email: null, phone: null }),
+    // Contact enrichment mirrors the hit's own email/phone by default — these tests
+    // predate enrichment and aren't about it, so a usable email keeps their original
+    // ingest/skip behavior intact under the new no-email gate.
+    getCandidateContact: async (id) => ({ email: byId.get(id)?.email ?? null, phone: byId.get(id)?.phone ?? null }),
   };
 }
 
@@ -69,7 +74,7 @@ describe('importCandidatesForJob', () => {
       getJob: async () => null,
       searchCandidates: async () => [hit('jd-1', 'Ada L')],
       getResumeText: async () => { resumeFetches++; return 'new resume'; },
-      getCandidateContact: async () => ({ email: null, phone: null }),
+      getCandidateContact: async () => ({ email: 'jd-1@x.test', phone: null }),
     };
 
     const out = await importCandidatesForJob(
@@ -114,5 +119,122 @@ describe('importCandidatesForJob', () => {
       { org_id: orgId, job_order_id: randomUUID() },
       { jobdiva: fakeJobDiva([], {}), embed: fakeEmbed },
     )).rejects.toThrow(/job order/i);
+  });
+
+  it('excludes a hit with no usable email — no resume fetch, no candidate row', async () => {
+    const { orgId } = await seedTestAgentInFreshOrg();
+    const jobId = await seedJob(orgId);
+    const jobdiva: JobDivaClient = {
+      getJob: async () => null,
+      searchCandidates: async () => [{
+        jobdiva_id: 'jd-noemail', full_name: 'No Email', email: null, phone: null,
+        current_title: null, location: null,
+      }],
+      getResumeText: vi.fn(async () => 'resume text'),
+      getCandidateContact: async () => ({ email: null, phone: '555-0100' }),
+    };
+    const out = await importCandidatesForJob(
+      { org_id: orgId, job_order_id: jobId },
+      { jobdiva, embed: fakeEmbed },
+    );
+    expect(out.no_email).toBe(1);
+    expect(out.jobdiva_new).toBe(0);
+    expect(jobdiva.getResumeText).not.toHaveBeenCalled(); // excluded BEFORE the expensive call
+    const rows = await db.select().from(candidates)
+      .where(and(eq(candidates.org_id, orgId), eq(candidates.jobdiva_id, 'jd-noemail')));
+    expect(rows).toHaveLength(0);
+  });
+
+  it('treats a malformed email as no-email', async () => {
+    const { orgId } = await seedTestAgentInFreshOrg();
+    const jobId = await seedJob(orgId);
+    const jobdiva: JobDivaClient = {
+      getJob: async () => null,
+      searchCandidates: async () => [{
+        jobdiva_id: 'jd-badmail', full_name: 'Bad Mail', email: null, phone: null,
+        current_title: null, location: null,
+      }],
+      getResumeText: vi.fn(async () => 'resume text'),
+      getCandidateContact: async () => ({ email: 'not-an-email', phone: null }),
+    };
+    const out = await importCandidatesForJob(
+      { org_id: orgId, job_order_id: jobId },
+      { jobdiva, embed: fakeEmbed },
+    );
+    expect(out.no_email).toBe(1);
+    expect(jobdiva.getResumeText).not.toHaveBeenCalled();
+  });
+
+  it('ingests an enriched hit with email and phone from CandidateDetail', async () => {
+    const { orgId } = await seedTestAgentInFreshOrg();
+    const jobId = await seedJob(orgId);
+    const jobdiva: JobDivaClient = {
+      getJob: async () => null,
+      searchCandidates: async () => [{
+        jobdiva_id: 'jd-rich', full_name: 'Has Email', email: null, phone: null,
+        current_title: 'Analyst', location: null,
+      }],
+      getResumeText: async () => 'resume text',
+      getCandidateContact: async () => ({ email: 'Person@Example.com ', phone: '555-0101' }),
+    };
+    const out = await importCandidatesForJob(
+      { org_id: orgId, job_order_id: jobId },
+      { jobdiva, embed: fakeEmbed },
+    );
+    expect(out.jobdiva_new).toBe(1);
+    expect(out.no_email).toBe(0);
+    const [row] = await db.select().from(candidates)
+      .where(and(eq(candidates.org_id, orgId), eq(candidates.jobdiva_id, 'jd-rich')));
+    expect(row.email).toBe('Person@Example.com'.trim()); // trimmed, case preserved
+    expect(row.phone).toBe('555-0101');
+  });
+
+  it('backfills email onto an already-known candidate', async () => {
+    const { orgId } = await seedTestAgentInFreshOrg();
+    const jobId = await seedJob(orgId);
+    await ingestCandidate({
+      org_id: orgId, full_name: 'Known Person', email: null, phone: null,
+      current_title: null, location: null, source: 'jobdiva',
+      jobdiva_id: 'jd-known', resume_text: 'old resume',
+    });
+    const jobdiva: JobDivaClient = {
+      getJob: async () => null,
+      searchCandidates: async () => [{
+        jobdiva_id: 'jd-known', full_name: 'Known Person', email: null, phone: null,
+        current_title: null, location: null,
+      }],
+      getResumeText: async () => null,
+      getCandidateContact: async () => ({ email: 'known@example.com', phone: null }),
+    };
+    await importCandidatesForJob(
+      { org_id: orgId, job_order_id: jobId },
+      { jobdiva, embed: fakeEmbed },
+    );
+    const [row] = await db.select().from(candidates)
+      .where(and(eq(candidates.org_id, orgId), eq(candidates.jobdiva_id, 'jd-known')));
+    expect(row.email).toBe('known@example.com');
+  });
+
+  it('a throwing getCandidateContact skips that candidate but not the batch', async () => {
+    const { orgId } = await seedTestAgentInFreshOrg();
+    const jobId = await seedJob(orgId);
+    const jobdiva: JobDivaClient = {
+      getJob: async () => null,
+      searchCandidates: async () => [
+        { jobdiva_id: 'jd-boom', full_name: 'Boom', email: null, phone: null, current_title: null, location: null },
+        { jobdiva_id: 'jd-ok', full_name: 'Ok Person', email: null, phone: null, current_title: null, location: null },
+      ],
+      getResumeText: async () => 'resume text',
+      getCandidateContact: async (id: string) => {
+        if (id === 'jd-boom') throw new Error('jobdiva 500');
+        return { email: 'ok@example.com', phone: null };
+      },
+    };
+    const out = await importCandidatesForJob(
+      { org_id: orgId, job_order_id: jobId },
+      { jobdiva, embed: fakeEmbed },
+    );
+    expect(out.skipped).toBe(1);
+    expect(out.jobdiva_new).toBe(1);
   });
 });

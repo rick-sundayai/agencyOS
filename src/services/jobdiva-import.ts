@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { z } from 'zod';
 import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '../db/client';
 import { candidates, candidate_documents } from '../db/schema';
@@ -12,6 +13,9 @@ import type { JobDivaClient } from './jobdiva';
 /** Hard cap on JobDiva resume fetches per run — one thin job must not trigger
  * hundreds of resume pulls. */
 export const RESUME_FETCH_CAP = 25;
+
+// A "usable" email from CandidateDetail: non-empty after trim, and shaped like an email.
+const EmailSchema = z.email();
 
 // Mirrors the n8n helpers' chunker so app-side and workflow-side embeddings agree.
 function chunkText(text: string, size = 1500, overlap = 200): string[] {
@@ -28,7 +32,7 @@ const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
 export async function importCandidatesForJob(
   input: { org_id: string; job_order_id: string; sourcing_run_id?: string | null },
   deps: { jobdiva: JobDivaClient; embed: EmbedFn },
-): Promise<Required<Pick<SourcingStats, 'jobdiva_found' | 'jobdiva_new' | 'embedded' | 'skipped'>>> {
+): Promise<Required<Pick<SourcingStats, 'jobdiva_found' | 'jobdiva_new' | 'embedded' | 'skipped' | 'no_email'>>> {
   const job = await getJobOrder(input.org_id, input.job_order_id);
   if (!job) throw new Error(`job order not found: ${input.job_order_id}`);
 
@@ -61,9 +65,17 @@ export async function importCandidatesForJob(
   const knownByJd = new Map(knownRows.map((r) => [r.jobdiva_id, r.id]));
   const hasDoc = new Set(docRows.map((r) => r.candidate_id));
 
-  let jobdiva_new = 0, embedded = 0, skipped = 0, resumeFetches = 0;
+  let jobdiva_new = 0, embedded = 0, skipped = 0, resumeFetches = 0, no_email = 0;
   for (const hit of hits) {
     try {
+      // CandidateDetail enrichment happens first, and a hit with no usable email is
+      // excluded before the expensive resume fetch — an unreachable candidate isn't
+      // worth a JobDiva resume call.
+      const contact = await deps.jobdiva.getCandidateContact(hit.jobdiva_id);
+      const email = contact.email && EmailSchema.safeParse(contact.email.trim()).success
+        ? contact.email.trim() : null;
+      if (!email) { no_email++; continue; }
+
       const knownId = knownByJd.get(hit.jobdiva_id);
       const needsResume = !knownId || !hasDoc.has(knownId);
       let resumeText: string | null = null;
@@ -73,8 +85,8 @@ export async function importCandidatesForJob(
       }
 
       const res = await ingestCandidate({
-        org_id: input.org_id, full_name: hit.full_name, email: hit.email,
-        phone: hit.phone, current_title: hit.current_title, location: hit.location,
+        org_id: input.org_id, full_name: hit.full_name, email,
+        phone: contact.phone ?? hit.phone, current_title: hit.current_title, location: hit.location,
         source: 'jobdiva', jobdiva_id: hit.jobdiva_id, resume_text: resumeText,
       });
       if (!res.deduped) jobdiva_new++;
@@ -97,7 +109,7 @@ export async function importCandidatesForJob(
     }
   }
 
-  const out = { jobdiva_found: hits.length, jobdiva_new, embedded, skipped };
+  const out = { jobdiva_found: hits.length, jobdiva_new, embedded, skipped, no_email };
   if (runId) await updateSourcingRun(input.org_id, runId, { stats: out });
   return out;
 }
