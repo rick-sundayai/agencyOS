@@ -35,8 +35,10 @@ const generateJson = (model, system, user, temperature = 0.1) => geminiPost(mode
 });
 
 const proposeDecision = (p) => apiPost('/api/agent/decisions', p);
+// The transition route derives the actor from the authenticated agent key and rejects
+// unknown body fields (z.strictObject) — do not send `actor`.
 const transition = (id, to, extras = {}) =>
-  apiPost(`/api/agent/decisions/${id}/transition`, { to, actor: WORKFLOW_AGENT, ...extras });
+  apiPost(`/api/agent/decisions/${id}/transition`, { to, ...extras });
 const completeDecision = async (id, outcome) => {
   await transition(id, 'executing');
   return transition(id, 'executed', { outcome });
