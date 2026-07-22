@@ -20,6 +20,11 @@ async function main() {
     const resume = await client.getResumeText(candidates[0].jobdiva_id);
     console.log('getResumeText length:', resume?.length ?? null);
   }
+
+  if (candidates[0]) {
+    const contact = await client.getCandidateContact(candidates[0].jobdiva_id);
+    console.log('getCandidateContact:', { has_email: contact.email !== null, has_phone: contact.phone !== null });
+  }
 }
 
 main().catch((err) => { console.error(err); process.exit(1); });

@@ -25,6 +25,9 @@ export type JobDivaClient = {
   // 2026-07-22 against production, per direct guidance on the real endpoint name.
   searchCandidates(jobNumber: string, opts?: { resumeCount?: number }): Promise<JobDivaCandidate[]>;
   getResumeText(jobdivaCandidateId: string): Promise<string | null>;
+  // Contact details from /apiv2/bi/CandidateDetail — used by import-time enrichment.
+  // Field mapping live-verified 2026-07-22 against production (see enrichment spec).
+  getCandidateContact(jobdivaCandidateId: string): Promise<{ email: string | null; phone: string | null }>;
 };
 
 // JobDiva REST surface. Live-verified 2026-07-22 against production (job 23-00053),
@@ -55,6 +58,7 @@ const ENDPOINTS = {
   jobAgentSearch: '/apiv2/jobdiva/JobAgentSearch',
   candidateResumes: '/apiv2/bi/CandidateResumesDetail',
   resumesText: '/apiv2/bi/ResumesTextDetail',
+  candidateDetail: '/apiv2/bi/CandidateDetail',
 };
 
 // BI endpoints return either a bare array of rows or `{ data: [...] }`.
@@ -192,6 +196,17 @@ export function makeJobDivaClient(cfg: {
       const text = textRows[0]?.PLAINTEXT;
       const trimmed = text != null ? String(text).trim() : '';
       return trimmed ? trimmed : null;
+    },
+
+    async getCandidateContact(jobdivaCandidateId) {
+      const res = await request(ENDPOINTS.candidateDetail, { candidateId: jobdivaCandidateId });
+      if (!res.ok) throw new Error(`getCandidateContact failed: ${res.status}`);
+      const rows = biRows(await res.json());
+      const row = rows[0];
+      if (!row) return { email: null, phone: null };
+      const email = typeof row.EMAIL === 'string' && row.EMAIL.trim() !== '' ? row.EMAIL.trim() : null;
+      const phone = typeof row.CELLPHONE === 'string' && row.CELLPHONE.trim() !== '' ? row.CELLPHONE.trim() : null;
+      return { email, phone };
     },
   };
 }

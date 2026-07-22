@@ -183,4 +183,49 @@ describe('makeJobDivaClient', () => {
     const client = makeJobDivaClient({ ...CFG, fetchFn });
     expect(await client.getResumeText('20172402054704')).toBe('Some resume text');
   });
+
+  describe('getCandidateContact', () => {
+    it('reads email and phone from CandidateDetail', async () => {
+      const fetchFn = fakeFetch((url) => {
+        if (url.includes('/api/authenticate')) return { body: 'tok' };
+        if (url.includes('/apiv2/bi/CandidateDetail') && url.includes('candidateId=cand-1')) {
+          return { body: { data: [{ CANDIDATEID: 'cand-1', EMAIL: 'person@example.com', CELLPHONE: '555-0100' }] } };
+        }
+        return { status: 404, body: 'nope' };
+      });
+      const client = makeJobDivaClient({ ...CFG, fetchFn });
+      expect(await client.getCandidateContact('cand-1')).toEqual({
+        email: 'person@example.com', phone: '555-0100',
+      });
+    });
+
+    it('returns nulls when the row has empty contact fields', async () => {
+      const fetchFn = fakeFetch((url) => {
+        if (url.includes('/api/authenticate')) return { body: 'tok' };
+        if (url.includes('/apiv2/bi/CandidateDetail')) return { body: [{ CANDIDATEID: 'cand-2', EMAIL: '', CELLPHONE: null }] };
+        return { status: 404, body: 'nope' };
+      });
+      const client = makeJobDivaClient({ ...CFG, fetchFn });
+      expect(await client.getCandidateContact('cand-2')).toEqual({ email: null, phone: null });
+    });
+
+    it('returns nulls when CandidateDetail has no row for the id', async () => {
+      const fetchFn = fakeFetch((url) => {
+        if (url.includes('/api/authenticate')) return { body: 'tok' };
+        if (url.includes('/apiv2/bi/CandidateDetail')) return { body: { data: [] } };
+        return { status: 404, body: 'nope' };
+      });
+      const client = makeJobDivaClient({ ...CFG, fetchFn });
+      expect(await client.getCandidateContact('cand-3')).toEqual({ email: null, phone: null });
+    });
+
+    it('throws on a non-200 from CandidateDetail', async () => {
+      const fetchFn = fakeFetch((url) => {
+        if (url.includes('/api/authenticate')) return { body: 'tok' };
+        return { status: 500, body: 'boom' };
+      });
+      const client = makeJobDivaClient({ ...CFG, fetchFn });
+      await expect(client.getCandidateContact('cand-4')).rejects.toThrow(/getCandidateContact failed: 500/);
+    });
+  });
 });

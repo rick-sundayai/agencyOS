@@ -15,6 +15,7 @@ function fakeJobDiva(hits: JobDivaCandidate[], resumes: Record<string, string | 
     getJob: async () => null,
     searchCandidates: async () => hits,
     getResumeText: async (id) => resumes[id] ?? null,
+    getCandidateContact: async () => ({ email: null, phone: null }),
   };
 }
 
@@ -68,6 +69,7 @@ describe('importCandidatesForJob', () => {
       getJob: async () => null,
       searchCandidates: async () => [hit('jd-1', 'Ada L')],
       getResumeText: async () => { resumeFetches++; return 'new resume'; },
+      getCandidateContact: async () => ({ email: null, phone: null }),
     };
 
     const out = await importCandidatesForJob(
@@ -97,6 +99,7 @@ describe('importCandidatesForJob', () => {
       getJob: async () => null,
       searchCandidates: async () => { throw new Error('should not be called without a jobdiva_id'); },
       getResumeText: async () => null,
+      getCandidateContact: async () => ({ email: null, phone: null }),
     };
 
     const out = await importCandidatesForJob(
