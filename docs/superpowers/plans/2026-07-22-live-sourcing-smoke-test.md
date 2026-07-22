@@ -91,6 +91,14 @@ npm run db:migrate && npm run db:seed
 
 Expected: migrate completes without error; seed prints `Seeded org <uuid> with <N> policy rows`. (`seed.ts` is confirmed foundation-only: org, admin user, autonomy policy, scorer prompts — **no candidates**. Do NOT run `db:reseed`; it creates 500 fake candidates and would suppress the JobDiva fallback.)
 
+- [ ] **Step 2b: Seed the agent auth row.** `src/lib/agent-auth.ts` validates `x-agent-api-key` by looking up a sha256 hash in the `agents` table — `seed.ts` creates no such row, and without it every `/api/agent/*` call returns 401 (known gap from the previous plan's ledger; `reseed.ts` seeds it with bcrypt, which agent-auth rejects). Insert one row hashed from the real `AGENT_API_KEY` (value never printed):
+
+```bash
+npx tsx -e "import 'dotenv/config'; import { createHash } from 'node:crypto'; import postgres from 'postgres'; const sql = postgres(process.env.DATABASE_URL!, { max: 1 }); const hash = createHash('sha256').update(process.env.AGENT_API_KEY!).digest('hex'); (async () => { const [{ id }] = await sql\`select id from orgs limit 1\`; await sql\`insert into agents (org_id, name, system_prompt, api_key_hash) values (\${id}, 'n8n-shared', 'shared n8n agent API credential (local dev)', \${hash})\`; console.log('agent auth row seeded'); await sql.end(); })();"
+```
+
+Expected: `agent auth row seeded`. (Note: `dotenv/config` reads `.env`, so this requires Task 1's `AGENT_API_KEY` copy into `.env`.)
+
 - [ ] **Step 3: Assert the pool is empty**
 
 ```bash
