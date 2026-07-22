@@ -1,3 +1,22 @@
+> **Update (2026-07-22): resolved.** All four candidates below reached a final disposition:
+> - **#1 Decision-store error strings** — refactored to typed error subclasses
+>   (`DecisionNotFoundError`/`InvalidTransitionError`/`ConcurrentTransitionError`), commit `4a98256`.
+> - **#2 Agent-API shared-key identity** — turned out to already be fixed by the time this was
+>   revisited, superseded by ADR-0005 (per-agent keys) and ADR-0006/0007 (org scoping), all of
+>   which landed the day after this review opened. No further action needed.
+> - **#3 SSE stream untestable inline module** — refactored: the poll/push/error-stop loop is now
+>   `src/services/cockpit-stream-poller.ts`, unit-tested with fake timers; the route is a thin SSE
+>   framing wrapper around it. Commit `25f8c63`. (Note: a related but distinct client-side fix —
+>   sharing one `EventSource` per tab across components — landed independently in `2a12a3b`, before
+>   this candidate was picked up; it narrowed but didn't eliminate this candidate's scope.)
+> - **#4 Scattered Tier vocabulary** — refactored: `isRiskTier()`/`isAutoApprovedTier()` added to
+>   `contracts/decision.ts`; the colliding `TIERS` export in `components/tiers.ts` was dropped
+>   (never imported by name outside that file). Commit `0b450d4`.
+>
+> Separately, backfilled `docs/adr/0003-*.md` and `docs/adr/0004-*.md` — real decisions from
+> 2026-07-13 that were cited as "ADR-0003"/"ADR-0004" throughout the codebase ever since but never
+> had a file. Unrelated to this review; don't confuse the two.
+
 # Handoff: AgencyOS — 2026-07-18 (deployment plan shipped; architecture review opened)
 
 ## Context
