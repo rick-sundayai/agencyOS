@@ -3,12 +3,10 @@ terraform {
   required_providers {
     google = { source = "hashicorp/google", version = "~> 6.0" }
   }
-  # First apply uses local state; then migrate:
-  # terraform init -migrate-state  (uncomment after the bucket exists)
-  # backend "gcs" {
-  #   bucket = "agencyos-ops-tfstate"
-  #   prefix = "ops"
-  # }
+  backend "gcs" {
+    bucket = "agencyos-ops-f2f92e-tfstate"
+    prefix = "ops"
+  }
 }
 
 provider "google" {
