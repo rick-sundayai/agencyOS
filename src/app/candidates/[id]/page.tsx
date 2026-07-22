@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { auth } from '../../../lib/auth';
 import { getCandidateProfile } from '../../../services/ats-views';
 import { listCandidateConsents } from '../../../services/comms-log';
+import { fitMeta } from '../../../components/fit';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,12 +18,6 @@ const STAGE_LABEL: Record<string, string> = {
   interviewing: 'Interviewing', offer: 'Offer', placed: 'Placed', rejected: 'Rejected',
 };
 
-const FIT: Record<string, { label: string; tone: string }> = {
-  yes: { label: 'Strong fit', tone: 'fit-good' },
-  borderline: { label: 'Borderline', tone: 'fit-warn' },
-  no: { label: 'Poor fit', tone: 'fit-bad' },
-};
-
 export default async function CandidatePage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session) return null;
@@ -33,7 +28,7 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
   const consents = await listCandidateConsents(session.user.org_id, id);
 
   const latest = scores[0] ?? null; // scores are ordered newest-first
-  const fit = latest?.fit_rating ? FIT[latest.fit_rating] : null;
+  const fit = fitMeta(latest?.fit_rating);
   const ring = fitRing(latest?.weighted_score ?? null);
 
   return (
@@ -129,7 +124,7 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
         ) : (
           <ul className="detail-rows">
             {scores.map((s) => {
-              const f = FIT[s.fit_rating];
+              const f = fitMeta(s.fit_rating);
               return (
                 <li className="detail-row" key={s.id}>
                   <div className="detail-row-main">
