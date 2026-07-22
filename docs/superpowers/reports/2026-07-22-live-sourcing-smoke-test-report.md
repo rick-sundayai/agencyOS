@@ -106,3 +106,52 @@ property it tested is proven by `embedded: 0` + unchanged counts.
 
 Staging-stamp repeat, scorer calibration (RecruiterPro), JobDiva client-dedupe gap,
 automated live e2e.
+
+---
+
+## Enrichment acceptance (2026-07-22, same day — contact enrichment plan)
+
+**Spec:** `docs/superpowers/specs/2026-07-22-jobdiva-contact-enrichment-design.md`
+**Commits under test:** `732059d` (client `getCandidateContact`), `388f362` (import enrichment + no-email exclusion).
+**Pre-flight (Task 1 probe):** `CandidateDetail` live contract confirmed — param `candidateId`
+(camelCase; lowercase 400s), email key `EMAIL`, phone key `CELLPHONE` (no plain `PHONE` key exists;
+WORKPHONE/HOMEPHONE empty, PHONE1–4 are typed slots). Test candidate's email: present.
+
+### Run 5 (UI re-source of 23-00053)
+
+Stats: `{pool_matches: 2, jobdiva_found: 1, jobdiva_new: 0, embedded: 0, skipped: 0, no_email: 0, shortlisted: 2}` — phase `done`.
+
+| Check | Expected | Actual |
+|---|---|---|
+| Email backfilled on the known JobDiva candidate | true | **true** (phone backfilled too, from CELLPHONE) |
+| `no_email` stat present in run stats | yes | **yes** (0 — the hit had a usable email) |
+| No new "no email on file" `risk.alert` | 0 | **0** |
+| `comms.candidate_outreach` decision in Cockpit | yes | **yes** — "Outreach draft for Manrose Sohi — scored 75.6%", Tier 2, auto-approved by policy, 15-min undo window ("Executes in 705s unless cancelled") |
+| Mailpit | local only | **0 messages — nothing left the machine** |
+
+### The undo window worked as designed
+
+Rick cancelled the outreach decision from the Cockpit at 10:47:12 UTC, ~6 minutes into the
+15-minute undo window (`cancelled_by` = his admin user). The communication workflow therefore
+never sent it: Mailpit stayed at 0. **The full outreach chain is verified up to and including
+the human gate** — screening drafted real outreach instead of a no-email `risk.alert`, the
+Tier-2 policy auto-approved it, the Cockpit displayed it with a live countdown, and a human
+cancel inside the window stopped execution. The final send-to-Mailpit leg was deliberately not
+exercised this run; re-source and let the window lapse to see the email land.
+
+A second `risk.alert` ("Borderline screen for Embed Target (60%)") also fired — correct
+borderline-branch behavior, but for a test-fixture candidate (see finding below).
+
+### New findings
+
+7. **Vitest writes fixtures into the REAL org, not just `test-org-*` orgs.** The 10:36:58–10:37:01
+   test window (Task 3's suite) left 10 candidates (Ingest One, Embed Target, Gate Test ×5, …),
+   2 QA users, and 16 empty-payload `comms.candidate_outreach` decisions inside 'Sunday AI Work'.
+   Live consequences: "Embed Target" entered the sourcing pool, was shortlisted (distance 0.996),
+   screened at real Gemini cost, and raised a borderline `risk.alert`; the empty-payload comms
+   decisions sit in the Cockpit's auto-exec counter and will fail payload validation if ever picked
+   up. Tests must target an isolated DB (or at minimum never the seeded org).
+8. **`scripts/jobdiva-smoke.ts:17` prints full candidate objects** (including phone) — violates the
+   PII posture the rest of the tooling follows. One-line fix: print field presence only.
+9. `getCandidateContact` phone mapping reads `CELLPHONE` only (one-key rule). If a tenant relies on
+   PHONE1–4 slots instead, phone enrichment misses — email policy is unaffected.
