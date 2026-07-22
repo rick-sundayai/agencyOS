@@ -3,7 +3,28 @@
 Spec: docs/superpowers/specs/2026-07-18-deployment-stamps-design.md
 Infra: infra/ (ops + stamp module). CI: .github/workflows/.
 
+## Before onboarding the first real client
+
+Run a full fleet nuke once — destroy the `staging` stamp AND the `ops` project (Artifact
+Registry, WIF, TF-state bucket, deployer SA), then rebuild `ops` from a clean bootstrap —
+before the first real client stamp is created. This proves the whole fleet, including WIF
+trust and GitHub repo variables, stands up from zero with nothing left over from testing.
+See `docs/superpowers/specs/2026-07-22-gcp-staging-poc-execution-design.md` for the exact
+commands. Not required again after the first real client exists.
+
 ## Onboard a client
+
+> **First stamp ever (staging) only:** its Terraform hardcodes `:bootstrap`-tagged images
+> because no real image exists yet. Build and push them once before the very first
+> `terraform apply` (skip this for every client after staging exists):
+> ```bash
+> AR=$(terraform -chdir=infra/ops output -raw artifact_registry)
+> docker build --target runtime -t "$AR/app:bootstrap" .
+> docker build --target migrate -t "$AR/migrate:bootstrap" .
+> docker push "$AR/app:bootstrap"
+> docker push "$AR/migrate:bootstrap"
+> ```
+
 1. Copy `infra/stamps/staging/` to `infra/stamps/<client>/`; edit `stamp_name`,
    `project_id` (e.g. `agencyos-acme`), `backend.prefix` (`stamps/<client>`),
    and optionally `custom_domain`, `db_tier`, `app_min_instances`.
