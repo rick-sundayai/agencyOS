@@ -1,5 +1,6 @@
 import { auth } from '../../../../lib/auth';
-import { listQueue } from '../../../../services/decision-store';
+import { listQueue, type DecisionRow } from '../../../../services/decision-store';
+import { startCockpitPolling, type StopPolling } from '../../../../services/cockpit-stream-poller';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,25 +12,26 @@ export async function GET(): Promise<Response> {
   const orgId = session.user.org_id;
 
   const encoder = new TextEncoder();
-  let timer: ReturnType<typeof setInterval> | undefined;
+  // Assigned once startCockpitPolling's first (awaited) snapshot completes, below. cancel()
+  // only ever runs after start() has had a chance to run, so this is never called as a no-op
+  // when there's a real timer to clear.
+  let stop: StopPolling = () => {};
 
   const stream = new ReadableStream({
     async start(controller) {
-      const push = async () => {
-        try {
-          const queue = await listQueue(orgId);
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ queue })}\n\n`));
-        } catch {
-          // Client went away (enqueue throws on a closed controller) — stop polling.
-          clearInterval(timer);
+      stop = await startCockpitPolling<DecisionRow[]>({
+        fetchQueue: () => listQueue(orgId),
+        push: (queue) => controller.enqueue(encoder.encode(`data: ${JSON.stringify({ queue })}\n\n`)),
+        onPushError: () => {
+          // enqueue threw (client went away) — stop() already ran inside the poller;
+          // just close our side of the controller too.
           try { controller.close(); } catch { /* already closed */ }
-        }
-      };
-      await push(); // first snapshot immediately, then poll
-      timer = setInterval(push, POLL_MS);
+        },
+        pollMs: POLL_MS,
+      });
     },
     cancel() {
-      clearInterval(timer);
+      stop();
     },
   });
 
