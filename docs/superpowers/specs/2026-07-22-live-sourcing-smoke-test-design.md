@@ -1,7 +1,7 @@
 # Live sourcing smoke test: first real JobDiva + Gemini run — Design
 
 **Date:** 2026-07-22
-**Status:** Approved (brainstormed with Rick)
+**Status:** Executed 2026-07-22 — PASS. See `docs/superpowers/reports/2026-07-22-live-sourcing-smoke-test-report.md`
 **Approach:** Staged pre-flight, then UI run (Approach A — prove each external seam in
 isolation before the first click)
 
