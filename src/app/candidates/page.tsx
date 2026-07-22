@@ -1,16 +1,9 @@
 import Link from 'next/link';
 import { auth } from '../../lib/auth';
 import { listCandidates } from '../../services/ats-views';
+import { fitMeta } from '../../components/fit';
 
 export const dynamic = 'force-dynamic';
-
-// fit_rating → operator-facing label + tone class. Mirrors the domain values in
-// intelligence.scores ('yes' | 'borderline' | 'no').
-const FIT: Record<string, { label: string; tone: string }> = {
-  yes: { label: 'Strong fit', tone: 'fit-good' },
-  borderline: { label: 'Borderline', tone: 'fit-warn' },
-  no: { label: 'Poor fit', tone: 'fit-bad' },
-};
 
 export default async function CandidatesPage() {
   const session = await auth();
@@ -32,7 +25,7 @@ export default async function CandidatesPage() {
       ) : (
         <div className="rec-grid">
           {rows.map((c) => {
-            const fit = c.score?.fit_rating ? FIT[c.score.fit_rating] : null;
+            const fit = fitMeta(c.score?.fit_rating);
             const ring = fitRing(c.score?.weighted_score ?? null);
             return (
               <Link key={c.id} href={`/candidates/${c.id}`} className="rec-card">
@@ -47,7 +40,7 @@ export default async function CandidatesPage() {
                     {c.location && <span className="rec-card-meta">{c.location}</span>}
                   </div>
                   {ring && (
-                    <span className={`fit-ring ${fitTone(c.score?.fit_rating)}`} role="img"
+                    <span className={`fit-ring ${fit?.tone ?? ''}`} role="img"
                       aria-label={`Fit score ${ring.value}`}>
                       <svg viewBox="0 0 36 36" width="44" height="44">
                         <circle className="fit-ring-track" cx="18" cy="18" r="15.5" />
@@ -87,10 +80,6 @@ function fitRing(weighted: string | null): { value: number; dash: number; gap: n
   const circumference = 2 * Math.PI * 15.5; // r = 15.5 in the 36×36 viewBox
   const dash = (value / 100) * circumference;
   return { value, dash, gap: circumference - dash };
-}
-
-function fitTone(rating: string | null | undefined): string {
-  return rating ? (FIT[rating]?.tone ?? '') : '';
 }
 
 /** Compact "N days ago"-style relative time from a timestamp. */
