@@ -12,7 +12,7 @@ async function main() {
   console.log('getJob:', JSON.stringify(job, null, 2));
   if (!job) return;
 
-  const candidates = await client.searchCandidates({ title: job.title, mustHaves: job.must_haves });
+  const candidates = await client.searchCandidates(jobNumber);
   console.log(`searchCandidates: ${candidates.length} hits`);
   console.log(JSON.stringify(candidates.slice(0, 3), null, 2));
 

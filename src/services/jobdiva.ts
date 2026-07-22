@@ -20,33 +20,41 @@ export type JobDivaCandidate = {
 
 export type JobDivaClient = {
   getJob(jobNumber: string): Promise<JobDivaJob | null>;
-  searchCandidates(q: { title: string; mustHaves: string[]; location?: string }): Promise<JobDivaCandidate[]>;
+  // Runs JobDiva's own job-to-candidate matching (JobAgentSearch) for the given
+  // agency-facing job number — not a free-text keyword search. Confirmed live
+  // 2026-07-22 against production, per direct guidance on the real endpoint name.
+  searchCandidates(jobNumber: string, opts?: { resumeCount?: number }): Promise<JobDivaCandidate[]>;
   getResumeText(jobdivaCandidateId: string): Promise<string | null>;
 };
 
-// JobDiva REST surface. Live-verified 2026-07-22 against production (job 23-00053):
-// the `/apiv2/jobdiva/*` namespace this file previously guessed at doesn't exist
-// (404s outright). `/api/authenticate` and the `/apiv2/bi/*` "BI" namespace (also
-// used by scripts/migration/jobdiva-client.ts) are real. BI responses wrap rows in
-// `{ data: [...] }` (or occasionally a bare array) with ALL-CAPS field names.
+// JobDiva REST surface. Live-verified 2026-07-22 against production (job 23-00053),
+// cross-checked against JobDiva's own live Swagger spec (fetched unauthenticated
+// from /swagger-resources -> /swagger?group=Version 2). Two namespaces are real:
+// `/apiv2/bi/*` ("BI" reports — by-ID "Detail" lookups and date-windowed
+// "NewUpdated*Records" listings, ALL-CAPS fields, rows wrapped in `{ data: [...] }`
+// or a bare array), and `/apiv2/jobdiva/*` (the ATS action/search API — this file's
+// original guess at `getJobById` under this namespace 404'd because that specific
+// *name* doesn't exist, not because the namespace is fake: `JobAgentSearch` does,
+// per the spec, and per direct account confirmation of the real endpoint name).
 //
-// getJob is confirmed working: JobDetail accepts the agency-facing job number
-// directly via `jobdivaref` (no separate internal-id lookup needed).
-//
-// searchCandidates and getResume remain UNVERIFIED. The BI namespace only exposes
-// by-ID "Detail" lookups (CandidateDetail requires a numeric candidateId) and
-// date-windowed "NewUpdated*Records" listings (capped at a 14-day range per call) —
-// no keyword/criteria search was found. Attempted and confirmed 404:
-// /apiv2/candidate/searchcandidate, /apiv2/bi/SearchCandidate, /apiv2/bi/CandidateSearch.
-// Before relying on searchCandidates in production, either get JobDiva's official
-// API docs for a candidate-search endpoint, or redesign this to pull
-// NewUpdatedCandidateRecords windows and match locally (see 2026-07-22 smoke-test
-// report for the full trace).
+// getJob: BI JobDetail, queried by the agency-facing job number via `jobdivaref`.
+// searchCandidates: GET /apiv2/jobdiva/JobAgentSearch?jobId=<internal id>&resumeCount=N
+// — JobDiva's own job-to-candidate matching for a specific job, not a free-text
+// keyword search. It takes the *internal numeric* job id (not the agency-facing
+// job number), so a job number input is resolved via JobDetail(jobdivaref) first,
+// same as getJob. Response fields are ALL-CAPS (CANDIDATEID, FIRSTNAME, LASTNAME,
+// PHONE, CITY, PROVINCE [state], ABSTRACT as a current-title-ish summary); no
+// email field is included in the match summary.
+// getResumeText: two BI calls chained, per the spec's separation of resume
+// metadata from resume text — CandidateResumesDetail(candidateId) to get the
+// candidate's resume id (RESUMEID, a composite string like "123_45_1"), then
+// ResumesTextDetail(resumeIds) for the text, returned under PLAINTEXT.
 const ENDPOINTS = {
   auth: '/api/authenticate',
   getJob: '/apiv2/bi/JobDetail',
-  searchCandidates: '/apiv2/bi/CandidateSearch', // unverified — see comment above
-  getResume: '/apiv2/bi/CandidateResumesDetail', // unverified — see comment above
+  jobAgentSearch: '/apiv2/jobdiva/JobAgentSearch',
+  candidateResumes: '/apiv2/bi/CandidateResumesDetail',
+  resumesText: '/apiv2/bi/ResumesTextDetail',
 };
 
 // BI endpoints return either a bare array of rows or `{ data: [...] }`.
@@ -79,9 +87,10 @@ export function makeJobDivaClient(cfg: {
 
   // All JobDiva calls funnel through here: attach bearer token, re-auth exactly once
   // on 401, surface everything else as an error the caller can soft-handle.
-  async function request(path: string, params: Record<string, string>): Promise<Response> {
+  async function request(path: string, params: Record<string, string> | string): Promise<Response> {
     const tk = token ?? await authenticate();
-    const url = `${base}${path}?${new URLSearchParams(params)}`;
+    const qs = typeof params === 'string' ? params : new URLSearchParams(params).toString();
+    const url = `${base}${path}?${qs}`;
     let res = await fetchFn(url, { headers: { authorization: `Bearer ${tk}` } });
     if (res.status === 401) {
       const fresh = await authenticate();
@@ -90,11 +99,30 @@ export function makeJobDivaClient(cfg: {
     return res;
   }
 
+  // JobDiva's "multi" collection format for array query params: repeat the key,
+  // e.g. resumeIds=1&resumeIds=2.
+  function multiParam(name: string, values: string[]): string {
+    return values.map((v) => `${name}=${encodeURIComponent(v)}`).join('&');
+  }
+
   const cleanHtml = (html: string | null | undefined): string | null => {
     if (!html) return null;
     const text = html.replace(/<[^>]*>?/gm, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
     return text || null;
   };
+
+  // JobAgentSearch (and other /apiv2/jobdiva/* endpoints) take the internal
+  // numeric JobDiva id, not the agency-facing job number — resolve via the same
+  // BI JobDetail lookup getJob uses.
+  async function resolveInternalJobId(jobNumberOrId: string): Promise<string | null> {
+    if (/^\d+$/.test(jobNumberOrId)) return jobNumberOrId;
+    const res = await request(ENDPOINTS.getJob, { jobdivaref: jobNumberOrId });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`jobdiva resolveInternalJobId failed: ${res.status}`);
+    const rows = biRows(await res.json());
+    const id = rows[0]?.ID;
+    return id != null ? String(id) : null;
+  }
 
   return {
     async getJob(jobNumber) {
@@ -126,31 +154,49 @@ export function makeJobDivaClient(cfg: {
       };
     },
 
-    async searchCandidates(q) {
-      const keywords = [q.title, ...q.mustHaves].filter(Boolean).join(' ');
-      const params: Record<string, string> = { keywords, maxreturned: '50' };
-      if (q.location) params.location = q.location;
-      const res = await request(ENDPOINTS.searchCandidates, params);
+    async searchCandidates(jobNumber, opts) {
+      const internalId = await resolveInternalJobId(jobNumber);
+      if (internalId == null) return [];
+      const resumeCount = String(opts?.resumeCount ?? 0);
+      const res = await request(ENDPOINTS.jobAgentSearch, { jobId: internalId, resumeCount });
       if (!res.ok) throw new Error(`jobdiva searchCandidates failed: ${res.status}`);
       const data = biRows(await res.json());
-      return data.map((c) => ({
-        jobdiva_id: String(c.id),
-        full_name: [c.firstName, c.lastName].filter(Boolean).join(' ') || String(c.id),
-        email: c.email != null ? String(c.email) : null,
-        phone: c.phone != null ? String(c.phone) : null,
-        current_title: c.currentTitle != null ? String(c.currentTitle) : null,
-        location: c.city != null ? String(c.city) : null,
-      }));
+      const field = (row: Record<string, unknown>, ...names: string[]): unknown => {
+        for (const n of names) if (row[n] != null) return row[n];
+        return null;
+      };
+      return data.map((c) => {
+        const id = field(c, 'id', 'ID', 'candidateId', 'CANDIDATEID');
+        const city = field(c, 'city', 'CITY') as string | null;
+        const state = field(c, 'state', 'STATE', 'PROVINCE') as string | null;
+        return {
+          jobdiva_id: String(id),
+          full_name: [field(c, 'first name', 'firstName', 'FIRSTNAME'), field(c, 'last name', 'lastName', 'LASTNAME')]
+            .filter(Boolean).join(' ') || String(id),
+          email: field(c, 'email', 'EMAIL') as string | null,
+          phone: field(c, 'phone 1', 'phone', 'PHONE', 'PHONE1') as string | null,
+          current_title: field(c, 'title', 'currentTitle', 'TITLE', 'ABSTRACT') as string | null,
+          location: [city, state].filter(Boolean).join(', ') || null,
+        };
+      });
     },
 
     async getResumeText(jobdivaCandidateId) {
-      const res = await request(ENDPOINTS.getResume, { candidateid: jobdivaCandidateId });
-      if (res.status === 404) return null;
-      if (!res.ok) throw new Error(`jobdiva getResume failed: ${res.status}`);
-      const data = await res.json() as Array<{ resumeText?: string }> | { resumeText?: string };
-      const first = Array.isArray(data) ? data[0] : data;
-      const text = first?.resumeText?.trim();
-      return text ? text : null;
+      const resumesRes = await request(ENDPOINTS.candidateResumes, { candidateId: jobdivaCandidateId });
+      if (resumesRes.status === 404) return null;
+      if (!resumesRes.ok) throw new Error(`jobdiva getResume (resumes list) failed: ${resumesRes.status}`);
+      const resumeRows = biRows(await resumesRes.json());
+      const resumeId = resumeRows[0]?.RESUMEID ?? resumeRows[0]?.ID ?? resumeRows[0]?.resumeId;
+      if (resumeId == null) return null;
+
+      const textRes = await request(ENDPOINTS.resumesText, multiParam('resumeIds', [String(resumeId)]));
+      if (textRes.status === 404) return null;
+      if (!textRes.ok) throw new Error(`jobdiva getResume (text) failed: ${textRes.status}`);
+      const textRows = biRows(await textRes.json());
+      const row = textRows[0];
+      const text = row?.PLAINTEXT ?? row?.RESUMETEXT ?? row?.resumeText ?? row?.TEXT;
+      const trimmed = text != null ? String(text).trim() : '';
+      return trimmed ? trimmed : null;
     },
   };
 }

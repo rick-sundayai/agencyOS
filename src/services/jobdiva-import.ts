@@ -33,10 +33,10 @@ export async function importCandidatesForJob(
   if (!job) throw new Error(`job order not found: ${input.job_order_id}`);
 
   const runId = input.sourcing_run_id ?? null;
-  const hits = await deps.jobdiva.searchCandidates({
-    title: job.title,
-    mustHaves: (job.must_haves as string[] | null) ?? [],
-  });
+  // searchCandidates runs JobDiva's own job-to-candidate matching (JobAgentSearch)
+  // and needs the job's JobDiva reference — jobs never sourced from/linked to
+  // JobDiva have no jobdiva_id, so there's nothing to match against there.
+  const hits = job.jobdiva_id ? await deps.jobdiva.searchCandidates(job.jobdiva_id) : [];
   if (runId) {
     await updateSourcingRun(input.org_id, runId, {
       phase: 'embedding_new', stats: { jobdiva_found: hits.length },

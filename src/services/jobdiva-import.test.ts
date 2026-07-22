@@ -18,10 +18,10 @@ function fakeJobDiva(hits: JobDivaCandidate[], resumes: Record<string, string | 
   };
 }
 
-async function seedJob(orgId: string): Promise<string> {
+async function seedJob(orgId: string, jobdivaId: string | null = '23-00053'): Promise<string> {
   const [row] = await db.insert(job_orders).values({
     org_id: orgId, title: 'Rust Engineer', kind: 'contract',
-    must_haves: ['Rust', 'gRPC'],
+    must_haves: ['Rust', 'gRPC'], jobdiva_id: jobdivaId,
   }).returning();
   return row.id;
 }
@@ -88,6 +88,21 @@ describe('importCandidatesForJob', () => {
     );
     expect(out.skipped).toBe(1);
     expect(out.jobdiva_new).toBe(1);
+  });
+
+  it('skips the JobDiva search entirely when the job has no jobdiva_id', async () => {
+    const { orgId } = await seedTestAgentInFreshOrg();
+    const jobId = await seedJob(orgId, null);
+    const jd: JobDivaClient = {
+      getJob: async () => null,
+      searchCandidates: async () => { throw new Error('should not be called without a jobdiva_id'); },
+      getResumeText: async () => null,
+    };
+
+    const out = await importCandidatesForJob(
+      { org_id: orgId, job_order_id: jobId }, { jobdiva: jd, embed: fakeEmbed },
+    );
+    expect(out).toMatchObject({ jobdiva_found: 0, jobdiva_new: 0, embedded: 0, skipped: 0 });
   });
 
   it('throws when the job order does not exist in the org', async () => {
