@@ -69,6 +69,7 @@ export const SourcingStatsSchema = z.object({
   skipped: z.number().optional(),
   shortlisted: z.number().optional(),
   jobdiva_error: z.string().optional(),
+  no_email: z.number().optional(),
 }).catchall(z.unknown());
 
 /**
