@@ -485,6 +485,10 @@ main > p { color: var(--ink-500); font-size: 13.5px; margin-bottom: 4px; }
 .jd-source-form input::placeholder { color: var(--ink-400); }
 .jd-source-form input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
+/* Candidates-grid job-order filter — same input treatment as the JobDiva import field above. */
+.job-filter { margin-top: 14px; padding: 10px 12px; border: 1px solid var(--ink-200); border-radius: var(--r-sm); background: var(--paper); color: var(--ink-800); font-size: 14px; font-family: inherit; }
+.job-filter:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
 /* Sourcing shortlist — one card per candidate, name/title/distance/fit in a row. */
 .shortlist { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
 .shortlist-card { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

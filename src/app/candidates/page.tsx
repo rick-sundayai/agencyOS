@@ -1,14 +1,23 @@
 import Link from 'next/link';
 import { auth } from '../../lib/auth';
-import { listCandidates } from '../../services/ats-views';
+import { listCandidates, listJobOrders } from '../../services/ats-views';
 import { fitMeta } from '../../components/fit';
+import { JobOrderFilter } from '../../components/JobOrderFilter';
 
 export const dynamic = 'force-dynamic';
 
-export default async function CandidatesPage() {
+export default async function CandidatesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ job?: string }>;
+}) {
   const session = await auth();
   if (!session) return null;
-  const rows = await listCandidates(session.user.org_id);
+  const { job } = await searchParams;
+  const [rows, jobOrders] = await Promise.all([
+    listCandidates(session.user.org_id, job ? { jobOrderId: job } : undefined),
+    listJobOrders(session.user.org_id),
+  ]);
 
   return (
     <main>
@@ -18,6 +27,10 @@ export default async function CandidatesPage() {
         <p className="page-lede">
           Everyone the agents have sourced, screened, or advanced — across all job orders.
         </p>
+        <JobOrderFilter
+          jobOrders={jobOrders.map((j) => ({ id: j.id, title: j.title }))}
+          selected={job ?? null}
+        />
       </div>
 
       {rows.length === 0 ? (
