@@ -1,4 +1,4 @@
-import { and, count, desc, eq } from 'drizzle-orm';
+import { and, count, desc, eq, inArray } from 'drizzle-orm';
 import { db } from '../db/client';
 import {
   applications, candidate_documents, candidates, clients, job_orders, scores,
@@ -120,11 +120,21 @@ export async function getPipelineBoard(orgId: string): Promise<PipelineColumn[]>
   return PIPELINE_STAGES.map((stage) => ({ stage, cards: byStage.get(stage) ?? [] }));
 }
 
-export async function listCandidates(orgId: string) {
+export async function listCandidates(orgId: string, opts?: { jobOrderId?: string }) {
+  const filters = [eq(candidates.org_id, orgId)];
+  if (opts?.jobOrderId) {
+    const apps = await db
+      .select({ candidate_id: applications.candidate_id })
+      .from(applications)
+      .where(and(eq(applications.org_id, orgId), eq(applications.job_order_id, opts.jobOrderId)));
+    if (apps.length === 0) return [];
+    filters.push(inArray(candidates.id, apps.map((a) => a.candidate_id)));
+  }
+
   const rows = await db
     .select()
     .from(candidates)
-    .where(eq(candidates.org_id, orgId))
+    .where(and(...filters))
     .orderBy(desc(candidates.created_at));
 
   // Attach each candidate's latest fit score (most-recent scores row wins) so the

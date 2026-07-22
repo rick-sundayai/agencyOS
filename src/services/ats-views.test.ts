@@ -4,6 +4,8 @@ import {
   listJobOrders, getJobOrderPipeline, listCandidates, getCandidateProfile, listClients,
   getPipelineBoard, PIPELINE_STAGES,
 } from './ats-views';
+import postgres from 'postgres';
+import { getEnv } from '../lib/env';
 
 // Valid uuid that belongs to no org — proves org isolation.
 const OTHER_ORG = '00000000-0000-7000-8000-000000000000';
@@ -103,5 +105,42 @@ describe('listCandidates / listClients', () => {
     const client = (await listClients(f.orgId)).find((c) => c.id === f.clientId);
     expect(client).toBeDefined();
     expect(client!.open_jobs).toBe(1);
+  });
+});
+
+describe('listCandidates job-order filter', () => {
+  it('returns only candidates with an application against the given job order', async () => {
+    const filtered = await listCandidates(f.orgId, { jobOrderId: f.jobId });
+    expect(filtered.map((c) => c.id).sort()).toEqual([f.cand1, f.cand2].sort());
+  });
+
+  it('excludes a candidate with no application to the filtered job order', async () => {
+    const sql = postgres(getEnv('DATABASE_URL'), { max: 1 });
+    const [cand3] = await sql`
+      insert into candidates (org_id, full_name, email)
+      values (${f.orgId}, ${'Cand C ' + f.tag}, ${f.tag + '-c@example.com'}) returning id`;
+    await sql.end();
+
+    const filtered = await listCandidates(f.orgId, { jobOrderId: f.jobId });
+    expect(filtered.map((c) => c.id)).not.toContain(cand3.id as string);
+
+    const unfiltered = await listCandidates(f.orgId);
+    expect(unfiltered.map((c) => c.id)).toContain(cand3.id as string);
+  });
+
+  it('returns an empty array when the job order has no candidates', async () => {
+    const sql = postgres(getEnv('DATABASE_URL'), { max: 1 });
+    const [otherJob] = await sql`
+      insert into job_orders (org_id, client_id, title, kind)
+      values (${f.orgId}, ${f.clientId}, ${'Empty Job ' + f.tag}, 'contract') returning id`;
+    await sql.end();
+
+    expect(await listCandidates(f.orgId, { jobOrderId: otherJob.id as string })).toEqual([]);
+  });
+
+  it('an unfiltered call is unchanged from today', async () => {
+    const ids = (await listCandidates(f.orgId)).map((c) => c.id);
+    expect(ids).toContain(f.cand1);
+    expect(ids).toContain(f.cand2);
   });
 });
