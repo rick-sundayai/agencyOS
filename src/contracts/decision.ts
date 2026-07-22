@@ -66,6 +66,19 @@ export function canActOnTier(role: Role, tier: Tier): boolean {
   return ROLE_ACTIONABLE_TIERS[role].includes(tier);
 }
 
+/** A Risk-tier Decision can never be auto-approved and only ever offers Resolve, never
+ *  Approve/Reject — this is the one predicate every risk-gated call site should share
+ *  instead of re-deriving `tier === 'risk'` locally. */
+export function isRiskTier(tier: string): boolean {
+  return tier === 'risk';
+}
+
+/** Tiers 1 and 2 execute without a human Approve click (Tier 2 still offers the Undo
+ *  window). Tiers 3 and Risk both require a human to act, just via different controls. */
+export function isAutoApprovedTier(tier: string): boolean {
+  return tier === '1' || tier === '2';
+}
+
 export const DECISION_STATES = [
   'proposed', 'approved', 'executing', 'executed', 'failed', 'cancelled', 'undone',
 ] as const;

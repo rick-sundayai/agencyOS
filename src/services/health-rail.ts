@@ -1,5 +1,6 @@
 import type { DecisionRow } from './decision-store';
 import type { Roster } from './agent-roster';
+import { isRiskTier } from '../contracts/decision';
 
 export type HealthStatus = 'good' | 'warn' | 'alert';
 
@@ -35,7 +36,7 @@ export function computeHealthSignals({ queue, roster }: HealthInput): HealthSign
   // Queue tile reads "in queue" — not "awaiting you" — to avoid claiming them as human work;
   // the Undo tile surfaces that subset on its own.
   const pending = queue.length;
-  const risk = queue.filter((d) => d.tier === 'risk').length;
+  const risk = queue.filter((d) => isRiskTier(d.tier)).length;
   const undoing = queue.filter((d) => d.state === 'approved' && d.undo_expires_at !== null).length;
   const stalled = roster.entries.filter((e) => e.status === 'stalled').length;
 

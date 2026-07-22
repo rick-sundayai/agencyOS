@@ -1,3 +1,10 @@
+> **Update (2026-07-22): superseded.** The plan described below was fully executed — all 13 tasks
+> landed on `main` between commits `5aa529e` and `1f7f4ef` (through 2026-07-21), including the
+> JobDiva client, sourcing-runs table/service, live Sourcing panel, and Playwright e2e coverage.
+> The "Current state" and "Next steps" sections below are historical (written right after planning,
+> before execution began) — do not treat them as current. See `docs/handoffs/` for what shipped
+> after, and `git log --oneline` for the authoritative record. Left in place for context only.
+
 # Handoff: AgencyOS — UI-triggered sourcing with JobDiva fallback — 2026-07-20
 
 ## Context

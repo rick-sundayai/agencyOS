@@ -2,6 +2,7 @@
 
 import { DispositionControls } from './DispositionControls';
 import { tierMeta } from './tiers';
+import { isRiskTier } from '../contracts/decision';
 import type { QueueDecision } from './queue-types';
 
 export function DecisionCard({
@@ -15,7 +16,7 @@ export function DecisionCard({
   onOpen?: () => void;
 }) {
   const reasoning = decision.reasoning as { summary?: string };
-  const isRisk = decision.tier === 'risk';
+  const isRisk = isRiskTier(decision.tier);
   const tier = tierMeta(decision.tier);
   const summary = reasoning.summary ?? 'No summary provided';
 

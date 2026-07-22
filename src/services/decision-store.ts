@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, gt, isNull, like, lte, or } from 'drizzle-orm';
 import { db } from '../db/client';
 import { decisions, autonomy_policy } from '../db/schema';
-import { DecisionProposalSchema, ACTION_CLASSES, MONEY_ACTION_CLASSES, type ActionClass, type DecisionState } from '../contracts/decision';
+import { DecisionProposalSchema, ACTION_CLASSES, MONEY_ACTION_CLASSES, isAutoApprovedTier, type ActionClass, type DecisionState } from '../contracts/decision';
 import { canTransition } from '../contracts/transitions';
 
 export type DecisionRow = typeof decisions.$inferSelect;
@@ -21,7 +21,7 @@ export async function proposeDecision(input: unknown): Promise<DecisionRow> {
   const p = DecisionProposalSchema.parse(input);
   const policy = await getPolicy(p.org_id, p.action_class);
 
-  const autoApproved = policy.tier === '1' || policy.tier === '2';
+  const autoApproved = isAutoApprovedTier(policy.tier);
   const undoExpiresAt = policy.tier === '2'
     ? new Date(Date.now() + policy.undo_minutes * 60_000)
     : null;

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   AGENTS, ACTION_CLASSES, DECISION_STATES, TIERS, DecisionProposalSchema, MONEY_ACTION_CLASSES,
-  ROLES, canActOnTier,
+  ROLES, canActOnTier, isRiskTier, isAutoApprovedTier,
 } from './decision';
 
 const validProposal = {
@@ -43,6 +43,22 @@ describe('canActOnTier', () => {
     expect(canActOnTier('recruiter', '2')).toBe(true);
     expect(canActOnTier('recruiter', '3')).toBe(false);
     expect(canActOnTier('recruiter', 'risk')).toBe(false);
+  });
+});
+
+describe('isRiskTier', () => {
+  it('is true only for risk', () => {
+    expect(isRiskTier('risk')).toBe(true);
+    for (const tier of ['1', '2', '3']) expect(isRiskTier(tier)).toBe(false);
+  });
+});
+
+describe('isAutoApprovedTier', () => {
+  it('is true for tier 1 and 2, false for tier 3 and risk', () => {
+    expect(isAutoApprovedTier('1')).toBe(true);
+    expect(isAutoApprovedTier('2')).toBe(true);
+    expect(isAutoApprovedTier('3')).toBe(false);
+    expect(isAutoApprovedTier('risk')).toBe(false);
   });
 });
 

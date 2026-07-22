@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { approveDecisionAction, cancelDecisionAction } from '../app/queue-actions';
+import { isRiskTier } from '../contracts/decision';
 import type { QueueDecision } from './queue-types';
 
 function useCountdownMs(expiresAt: string | null): number | null {
@@ -35,7 +36,7 @@ export function DispositionControls({
   const [error, setError] = useState<string | null>(null);
   const remaining = useCountdownMs(decision.undo_expires_at);
 
-  const isRisk = decision.tier === 'risk';
+  const isRisk = isRiskTier(decision.tier);
   const inUndoWindow = decision.state === 'approved' && decision.undo_expires_at !== null;
 
   const act = (action: (id: string) => Promise<unknown>) =>
