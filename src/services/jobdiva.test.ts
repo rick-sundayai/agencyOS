@@ -43,20 +43,43 @@ describe('makeJobDivaClient', () => {
   });
 
   it('maps a job and returns null for an unknown job number', async () => {
+    // Pins the live-verified contract (2026-07-22, job 23-00053): JobDetail is
+    // queried by `jobdivaref` (the agency-facing job number), wraps rows in
+    // `{ data: [...] }`, and uses JobDiva's ALL-CAPS BI field names. SKILLS is a
+    // boolean search string, not a delimited list, so it must be split on AND/OR.
     const fetchFn = fakeFetch((url) => {
       if (url.includes('/api/authenticate')) return { body: 'tok' };
-      if (url.includes('bad-number')) return { status: 404, body: 'nope' };
+      if (url.includes('jobdivaref=bad-number')) return { status: 404, body: 'nope' };
       return {
-        body: [{
-          title: 'Platform Engineer', description: 'Build platforms',
-          skills: ['Kubernetes', 'Go'], jobType: 'Contract',
-        }],
+        body: {
+          data: [{
+            JOBTITLE: 'Platform Engineer',
+            JOBDESCRIPTION: 'Build <b>platforms</b>.<br />Ship things.',
+            SKILLS: '(KUBERNETES ) AND (GO )',
+            POSITIONTYPE: 'Contract',
+          }],
+        },
       };
     });
     const client = makeJobDivaClient({ ...CFG, fetchFn });
-    const job = await client.getJob('42');
-    expect(job).toMatchObject({ title: 'Platform Engineer', kind: 'contract', must_haves: ['Kubernetes', 'Go'] });
+    const job = await client.getJob('23-00053');
+    expect(job).toMatchObject({
+      title: 'Platform Engineer',
+      description: 'Build platforms . Ship things.',
+      kind: 'contract',
+      must_haves: ['KUBERNETES', 'GO'],
+    });
     expect(await client.getJob('bad-number')).toBeNull();
+  });
+
+  it('maps direct-hire jobs and defaults must_haves when SKILLS is absent', async () => {
+    const fetchFn = fakeFetch((url) => {
+      if (url.includes('/api/authenticate')) return { body: 'tok' };
+      return { body: { data: [{ JOBTITLE: 'Recruiter', POSITIONTYPE: 'Direct Hire' }] } };
+    });
+    const client = makeJobDivaClient({ ...CFG, fetchFn });
+    const job = await client.getJob('23-00099');
+    expect(job).toMatchObject({ title: 'Recruiter', kind: 'direct_hire', must_haves: [], description: null });
   });
 
   it('returns null when a candidate has no resume', async () => {
