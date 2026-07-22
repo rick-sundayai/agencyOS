@@ -1,10 +1,14 @@
-import { and, desc, eq, inArray, sql as dsql } from 'drizzle-orm';
+import { and, desc, eq, inArray, notInArray, sql as dsql } from 'drizzle-orm';
 import { db } from '../db/client';
 import { decisions, scores, sourcing_runs } from '../db/schema';
 import {
   type SourcingPhase, type SourcingStats, type RankedCandidate,
-  isTerminalPhase, ShortlistPayloadSchema,
+  isTerminalPhase, TERMINAL_PHASES, ShortlistPayloadSchema,
 } from '../contracts/sourcing';
+
+// Terminal-set membership for SQL predicates, derived from the contract rather than a raw
+// `not in ('done','failed')` literal — the DB-side echo of isTerminalPhase().
+const notTerminal = notInArray(sourcing_runs.phase, [...TERMINAL_PHASES]);
 
 /** A non-terminal run untouched this long is presumed dead (n8n crashed before its
  * failure handler could run) and is persisted to 'failed' on read. */
@@ -24,7 +28,7 @@ export async function createSourcingRun(input: {
     const [active] = await tx.select().from(sourcing_runs).where(and(
       eq(sourcing_runs.org_id, input.org_id),
       eq(sourcing_runs.job_order_id, input.job_order_id),
-      dsql`${sourcing_runs.phase} not in ('done', 'failed')`,
+      notTerminal,
     )).orderBy(desc(sourcing_runs.created_at)).limit(1);
     if (active) return { created: false as const, active };
 
@@ -46,10 +50,20 @@ export async function updateSourcingRun(
   if (patch.stats !== undefined) {
     set.stats = dsql`${sourcing_runs.stats} || ${JSON.stringify(patch.stats)}::jsonb`;
   }
-  const [row] = await db.update(sourcing_runs).set(set)
-    .where(and(eq(sourcing_runs.org_id, orgId), eq(sourcing_runs.id, id)))
-    .returning();
-  return row ?? null;
+  // A terminal run is final. Guard the write with a compare-and-swap on phase so a straggler
+  // PATCH (or the staleness sweep racing n8n's own failure report) can't resurrect a
+  // done/failed run — same principle as ADR-0003's CAS on decisions.state.
+  const [row] = await db.update(sourcing_runs).set(set).where(and(
+    eq(sourcing_runs.org_id, orgId), eq(sourcing_runs.id, id), notTerminal,
+  )).returning();
+  if (row) return row;
+
+  // No row updated: either the run doesn't exist (→ null, a real not-found) or it's already
+  // terminal, in which case the update is a benign no-op — echo the frozen run unchanged.
+  const [existing] = await db.select().from(sourcing_runs).where(and(
+    eq(sourcing_runs.org_id, orgId), eq(sourcing_runs.id, id),
+  ));
+  return existing ?? null;
 }
 
 export async function getLatestSourcingRun(

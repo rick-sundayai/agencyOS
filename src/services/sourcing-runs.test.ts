@@ -58,6 +58,30 @@ describe('updateSourcingRun', () => {
     const cross = await updateSourcingRun(other.orgId, res.run.id, { phase: 'done' });
     expect(cross).toBeNull();
   });
+
+  it('refuses to resurrect a terminal run, echoing it unchanged', async () => {
+    const { orgId } = await seedTestAgentInFreshOrg();
+    const jobId = await seedJob(orgId);
+    const res = await createSourcingRun({ org_id: orgId, job_order_id: jobId, requested_by: null });
+    if (!res.created) throw new Error('expected created');
+
+    const done = await updateSourcingRun(orgId, res.run.id, { phase: 'done', stats: { shortlisted: 5 } });
+    expect(done?.phase).toBe('done');
+
+    // A straggler PATCH must not move it back to a non-terminal phase or mutate its stats.
+    const straggler = await updateSourcingRun(orgId, res.run.id, {
+      phase: 'searching_pool', stats: { pool_matches: 99 },
+    });
+    expect(straggler?.phase).toBe('done');
+    expect(straggler?.stats).toMatchObject({ shortlisted: 5 });
+    expect(straggler?.stats).not.toHaveProperty('pool_matches');
+  });
+
+  it('returns null for a genuinely missing run', async () => {
+    const { orgId } = await seedTestAgentInFreshOrg();
+    const missing = await updateSourcingRun(orgId, randomUUID(), { phase: 'done' });
+    expect(missing).toBeNull();
+  });
 });
 
 describe('getLatestSourcingRun', () => {

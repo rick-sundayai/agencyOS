@@ -62,6 +62,8 @@ polls.
   fewer than 10 good matches (cosine distance < 0.55) exist internally.
 - A JobDiva failure never fails the run — it degrades to internal-only results.
 - A non-terminal run untouched for 10 minutes is presumed dead and reported failed.
+- A terminal run (`done`/`failed`) is final: updates to it are refused as a no-op, so a
+  late progress report can't resurrect it back into a non-terminal phase.
 
 **Distinguishes from:** Agent run — an Agent run is one model-call's telemetry; a
 Sourcing run is the recruiter-facing progress record spanning the whole flow.
