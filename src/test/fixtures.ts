@@ -12,8 +12,12 @@ export type AtsFixtures = {
 
 export async function makeAtsFixtures(): Promise<AtsFixtures> {
   const sql = postgres(getEnv('DATABASE_URL'), { max: 1 });
-  const orgId = (await sql`select id from orgs where name = 'Sunday AI Work'`)[0].id as string;
   const tag = `fixture-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+  // A fresh, isolated org — not the shared 'Sunday AI Work' dev-seed org — so assertions
+  // like "this stage has zero applications" hold regardless of what `db:reseed` or other
+  // fixtures have put in that shared org. Same isolation pattern as seedTestAgentInFreshOrg.
+  const orgId = (await sql`
+    insert into orgs (name) values (${'Org ' + tag}) returning id`)[0].id as string;
 
   const [client] = await sql`
     insert into clients (org_id, name) values (${orgId}, ${'Client ' + tag}) returning id`;
