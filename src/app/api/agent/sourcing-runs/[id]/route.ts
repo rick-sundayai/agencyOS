@@ -1,11 +1,11 @@
 import { z, ZodError } from 'zod';
 import { requireAgentKey } from '../../../../../lib/agent-auth';
 import { updateSourcingRun } from '../../../../../services/sourcing-runs';
-import { SOURCING_PHASES } from '../../../../../contracts/sourcing';
+import { SOURCING_PHASES, SourcingStatsSchema } from '../../../../../contracts/sourcing';
 
 const PatchSchema = z.strictObject({
   phase: z.enum(SOURCING_PHASES).optional(),
-  stats: z.record(z.string(), z.unknown()).optional(),
+  stats: SourcingStatsSchema.optional(),
   error: z.string().nullable().optional(),
 });
 

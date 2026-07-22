@@ -3,14 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { isTerminalPhase } from '../../../contracts/sourcing';
+import { isTerminalPhase, type SourcingStats } from '../../../contracts/sourcing';
 import { phaseLabel } from '../../../components/sourcing-phases';
 import type { ShortlistEntry } from '../../../services/sourcing-runs';
 
 type Run = {
   id: string;
   phase: string;
-  stats: Record<string, number | string | undefined> & { jobdiva_error?: string };
+  stats: SourcingStats;
   error: string | null;
 };
 

@@ -4,6 +4,7 @@ import { db } from '../db/client';
 import { candidates, candidate_documents } from '../db/schema';
 import { ingestCandidate, upsertEmbeddings } from './ingest';
 import { updateSourcingRun } from './sourcing-runs';
+import type { SourcingStats } from '../contracts/sourcing';
 import { getJobOrder } from './matching';
 import type { EmbedFn } from './embed';
 import type { JobDivaClient } from './jobdiva';
@@ -27,7 +28,7 @@ const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
 export async function importCandidatesForJob(
   input: { org_id: string; job_order_id: string; sourcing_run_id?: string | null },
   deps: { jobdiva: JobDivaClient; embed: EmbedFn },
-): Promise<{ jobdiva_found: number; jobdiva_new: number; embedded: number; skipped: number }> {
+): Promise<Required<Pick<SourcingStats, 'jobdiva_found' | 'jobdiva_new' | 'embedded' | 'skipped'>>> {
   const job = await getJobOrder(input.org_id, input.job_order_id);
   if (!job) throw new Error(`job order not found: ${input.job_order_id}`);
 

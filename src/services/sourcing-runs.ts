@@ -1,7 +1,10 @@
 import { and, desc, eq, inArray, sql as dsql } from 'drizzle-orm';
 import { db } from '../db/client';
 import { decisions, scores, sourcing_runs } from '../db/schema';
-import { type SourcingPhase, isTerminalPhase } from '../contracts/sourcing';
+import {
+  type SourcingPhase, type SourcingStats, type RankedCandidate,
+  isTerminalPhase, ShortlistPayloadSchema,
+} from '../contracts/sourcing';
 
 /** A non-terminal run untouched this long is presumed dead (n8n crashed before its
  * failure handler could run) and is persisted to 'failed' on read. */
@@ -35,7 +38,7 @@ export async function createSourcingRun(input: {
 
 export async function updateSourcingRun(
   orgId: string, id: string,
-  patch: { phase?: SourcingPhase; stats?: Record<string, unknown>; error?: string | null },
+  patch: { phase?: SourcingPhase; stats?: SourcingStats; error?: string | null },
 ): Promise<SourcingRunRow | null> {
   const set: Record<string, unknown> = { updated_at: new Date() };
   if (patch.phase !== undefined) set.phase = patch.phase;
@@ -68,13 +71,7 @@ export async function getLatestSourcingRun(
   return row;
 }
 
-export type ShortlistEntry = {
-  candidate_id: string;
-  full_name: string;
-  current_title: string | null;
-  distance: number;
-  fit_rating: string | null;
-};
+export type ShortlistEntry = RankedCandidate & { fit_rating: string | null };
 
 /** The recruiter-facing shortlist: the latest executed source.shortlist decision's
  * ranked payload, decorated with the latest screening fit per candidate. */
@@ -89,9 +86,10 @@ export async function getSourcingShortlist(
   )).orderBy(desc(decisions.proposed_at)).limit(1);
   if (!d) return null;
 
-  const ranked = (d.payload as { ranked?: Array<{
-    candidate_id: string; full_name: string; current_title: string | null; distance: number;
-  }> }).ranked ?? [];
+  // Parse the payload rather than assert its type; a malformed payload degrades to an empty
+  // shortlist so one bad Decision never 500s the recruiter's poll.
+  const parsed = ShortlistPayloadSchema.safeParse(d.payload);
+  const ranked = parsed.success ? parsed.data.ranked : [];
   if (ranked.length === 0) return [];
 
   const scoreRows = await db.select({
