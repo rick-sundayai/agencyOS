@@ -1,7 +1,7 @@
 terraform {
   required_version = ">= 1.7"
   backend "gcs" {
-    bucket = "agencyos-ops-tfstate" # ops output; adjust if different
+    bucket = "agencyos-ops-f2f92e-tfstate" # ops output (infra/ops/terraform.tfvars ops_project_id changed after a collision — see .superpowers/sdd/progress.md)
     prefix = "stamps/staging"
   }
 }
