@@ -34,7 +34,7 @@ describe('SourcingPanel', () => {
     expect(screen.getByRole('button', { name: /sourcing/i })).toBeDisabled();
   });
 
-  it('renders the shortlist with fit badges when done', async () => {
+  it('renders the shortlist with a fit badge, no raw distance, once screened', async () => {
     fetchMock.mockReturnValue(jsonRes({
       run: { id: 'r1', phase: 'done', stats: { shortlisted: 1 }, error: null },
       shortlist: [{
@@ -45,6 +45,33 @@ describe('SourcingPanel', () => {
     render(<SourcingPanel jobId="j1" autoStart={false} />);
     expect(await screen.findByText('Ada L')).toBeInTheDocument();
     expect(screen.getByText(/strong fit/i)).toBeInTheDocument();
+    expect(screen.queryByText(/distance/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/close match|possible match/i)).not.toBeInTheDocument();
+  });
+
+  it('shows a "Close match" chip, no raw distance, for an unscreened candidate under the threshold', async () => {
+    fetchMock.mockReturnValue(jsonRes({
+      run: { id: 'r1', phase: 'done', stats: { shortlisted: 1 }, error: null },
+      shortlist: [{
+        candidate_id: 'c2', full_name: 'Ben K', current_title: 'Engineer',
+        distance: 0.3, fit_rating: null,
+      }],
+    }));
+    render(<SourcingPanel jobId="j1" autoStart={false} />);
+    expect(await screen.findByText(/close match/i)).toBeInTheDocument();
+    expect(screen.queryByText(/distance/i)).not.toBeInTheDocument();
+  });
+
+  it('shows a "Possible match" chip for an unscreened candidate at/above the threshold', async () => {
+    fetchMock.mockReturnValue(jsonRes({
+      run: { id: 'r1', phase: 'done', stats: { shortlisted: 1 }, error: null },
+      shortlist: [{
+        candidate_id: 'c3', full_name: 'Cara M', current_title: 'Engineer',
+        distance: 0.7, fit_rating: null,
+      }],
+    }));
+    render(<SourcingPanel jobId="j1" autoStart={false} />);
+    expect(await screen.findByText(/possible match/i)).toBeInTheDocument();
   });
 
   it('shows the error and a retry button when failed', async () => {

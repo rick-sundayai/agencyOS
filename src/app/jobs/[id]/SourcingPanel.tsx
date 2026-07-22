@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { isTerminalPhase, type SourcingStats } from '../../../contracts/sourcing';
 import { phaseLabel } from '../../../components/sourcing-phases';
 import type { ShortlistEntry } from '../../../services/sourcing-runs';
+import { fitMeta, matchTier } from '../../../components/fit';
 
 type Run = {
   id: string;
@@ -15,12 +16,6 @@ type Run = {
 };
 
 const POLL_MS = 2500;
-
-const FIT: Record<string, { label: string; tone: string }> = {
-  yes: { label: 'Strong fit', tone: 'fit-good' },
-  borderline: { label: 'Borderline', tone: 'fit-warn' },
-  no: { label: 'Poor fit', tone: 'fit-bad' },
-};
 
 export default function SourcingPanel({ jobId, autoStart }: { jobId: string; autoStart: boolean }) {
   const router = useRouter();
@@ -123,15 +118,16 @@ export default function SourcingPanel({ jobId, autoStart }: { jobId: string; aut
       {shortlist !== null && shortlist.length > 0 && (
         <ol className="shortlist">
           {shortlist.map((s) => {
-            const f = s.fit_rating ? FIT[s.fit_rating] : null;
+            const f = fitMeta(s.fit_rating);
+            const match = f ? null : matchTier(s.distance);
             return (
               <li key={s.candidate_id} className="card shortlist-card">
                 <Link href={`/candidates/${s.candidate_id}`} className="shortlist-name">
                   {s.full_name}
                 </Link>
                 {s.current_title && <span className="shortlist-title">{s.current_title}</span>}
-                <span className="chip tnum">distance {Number(s.distance).toFixed(3)}</span>
                 {f && <span className={`fit-badge ${f.tone}`}>{f.label}</span>}
+                {match && <span className={`match-chip ${match.tone}`}>{match.label}</span>}
               </li>
             );
           })}

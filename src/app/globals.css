@@ -398,6 +398,14 @@ main > p { color: var(--ink-500); font-size: 13.5px; margin-bottom: 4px; }
 .fit-warn { color: var(--warn); background: var(--warn-soft); }
 .fit-bad { color: var(--bad); background: var(--bad-soft); }
 
+/* Match chip — the pre-screening counterpart to .fit-badge: a plain-English read on embedding
+   similarity before a real fit_rating exists. Quieter than .fit-badge on purpose (reuses .chip's
+   weight) since it's a similarity signal, not a graded judgment, and must not visually compete
+   with a real fit-badge once screening produces one. */
+.match-chip { display: inline-flex; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: var(--r-pill); background: var(--ink-100); color: var(--ink-600); }
+.match-close { color: var(--accent-ink); background: var(--accent-soft); }
+.match-possible { color: var(--ink-600); background: var(--ink-100); }
+
 /* Fit-score ring — SVG donut with the weighted score centred. */
 .fit-ring { position: relative; flex-shrink: 0; width: 44px; height: 44px; }
 .fit-ring svg { transform: rotate(-90deg); }
