@@ -1,13 +1,11 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import postgres from 'postgres';
-import { getEnv } from '../lib/env';
+import { createFixtureOrg } from '../test/fixtures';
 import { insertAgentRun } from './agent-runs';
 
-const sql = postgres(getEnv('DATABASE_URL'), { max: 1 });
 let orgId: string;
 
 beforeAll(async () => {
-  orgId = (await sql`select id from orgs where name = 'Sunday AI Work'`)[0].id;
+  orgId = await createFixtureOrg();
 });
 
 describe('insertAgentRun', () => {

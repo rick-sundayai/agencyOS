@@ -1,6 +1,21 @@
 import postgres from 'postgres';
 import { getEnv } from '../lib/env';
 
+/**
+ * Creates a fresh, isolated org and returns its id. Every DB-touching suite scopes its
+ * fixtures to one of these — never to a shared or seeded org — so leftover rows can't
+ * collide across suites or enter real pipelines.
+ */
+export async function createFixtureOrg(): Promise<string> {
+  const sql = postgres(getEnv('DATABASE_URL'), { max: 1 });
+  try {
+    const name = `test-org-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+    return (await sql`insert into orgs (name) values (${name}) returning id`)[0].id as string;
+  } finally {
+    await sql.end();
+  }
+}
+
 export type AtsFixtures = {
   orgId: string;
   tag: string;

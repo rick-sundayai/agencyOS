@@ -2,13 +2,14 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import postgres from 'postgres';
 import bcrypt from 'bcryptjs';
 import { getEnv } from './env';
+import { createFixtureOrg } from '../test/fixtures';
 import { verifyUser, getCurrentRole } from './credentials';
 
 const sql = postgres(getEnv('DATABASE_URL'), { max: 1 });
 const email = `login-test-${Date.now()}@example.com`;
 
 beforeAll(async () => {
-  const orgId = (await sql`select id from orgs where name = 'Sunday AI Work'`)[0].id;
+  const orgId = await createFixtureOrg();
   await sql`
     insert into users (org_id, email, full_name, password_hash)
     values (${orgId}, ${email}, 'Test User', ${bcrypt.hashSync('pw-123', 10)})`;

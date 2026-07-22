@@ -7,10 +7,10 @@ function req(key: string): Request {
 }
 
 describe('seedTestAgentInFreshOrg', () => {
-  it('creates an agent scoped to a brand-new org, distinct from seedTestAgent\'s shared org', async () => {
-    const shared = await seedTestAgent();
+  it('creates an agent scoped to a brand-new org, distinct from any other seeded agent\'s org', async () => {
+    const other = await seedTestAgent();
     const fresh = await seedTestAgentInFreshOrg();
-    expect(fresh.orgId).not.toBe(shared.orgId);
+    expect(fresh.orgId).not.toBe(other.orgId);
 
     const result = await requireAgentKey(req(fresh.key));
     expect(result).not.toBeInstanceOf(Response);

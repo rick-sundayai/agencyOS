@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import postgres from 'postgres';
 import { getEnv } from '../../src/lib/env';
+import { createFixtureOrg } from '../../src/test/fixtures';
 import { JobDivaClient } from './jobdiva-client';
 import { runImport } from './run-import';
 
@@ -67,7 +68,7 @@ async function clearFixtures() {
 }
 
 beforeAll(async () => {
-  orgId = (await sql`select id from orgs where name = 'Sunday AI Work'`)[0].id;
+  orgId = await createFixtureOrg();
   await clearCheckpoints();
   await clearFixtures();
 });

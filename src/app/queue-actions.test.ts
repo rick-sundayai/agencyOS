@@ -7,6 +7,7 @@ import type { Session } from 'next-auth';
 import postgres from 'postgres';
 import { auth } from '../lib/auth';
 import { getEnv } from '../lib/env';
+import { createFixtureOrg } from '../test/fixtures';
 import { proposeDecision, getDecision } from '../services/decision-store';
 import { approveDecisionAction, cancelDecisionAction } from './queue-actions';
 
@@ -20,7 +21,7 @@ let adminUserId: string;
 let recruiterUserId: string;
 
 beforeAll(async () => {
-  orgId = (await sql`select id from orgs where name = 'Sunday AI Work'`)[0].id;
+  orgId = await createFixtureOrg();
   // Real rows, not fake ids — requireCanAct now re-checks role against the database
   // (not the mocked session), so these need to actually exist to be looked up.
   const tag = Date.now();

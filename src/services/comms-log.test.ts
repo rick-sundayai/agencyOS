@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import postgres from 'postgres';
 import { getEnv } from '../lib/env';
+import { createFixtureOrg } from '../test/fixtures';
 import { logMessage, countRecentOutbound, getConsentStatus, getActivePrompt } from './comms-log';
 
 const sql = postgres(getEnv('DATABASE_URL'), { max: 1 });
@@ -8,7 +9,7 @@ let orgId: string;
 let candidateId: string;
 
 beforeAll(async () => {
-  orgId = (await sql`select id from orgs where name = 'Sunday AI Work'`)[0].id;
+  orgId = await createFixtureOrg();
   candidateId = (await sql`
     insert into candidates (org_id, full_name, email)
     values (${orgId}, 'Comms Test', ${'comms-' + Date.now() + '@example.com'}) returning id`)[0].id;

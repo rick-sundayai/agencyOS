@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import postgres from 'postgres';
 import { getEnv } from '../lib/env';
+import { createFixtureOrg } from '../test/fixtures';
 import { checkCompliance } from './compliance';
 import { logMessage } from './comms-log';
 
@@ -18,7 +19,7 @@ async function makeCandidate(): Promise<string> {
 }
 
 beforeAll(async () => {
-  orgId = (await sql`select id from orgs where name = 'Sunday AI Work'`)[0].id;
+  orgId = await createFixtureOrg();
 });
 
 describe('checkCompliance', () => {

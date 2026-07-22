@@ -3,6 +3,7 @@ import {
 } from 'vitest';
 import postgres from 'postgres';
 import { getEnv } from '../lib/env';
+import { createFixtureOrg } from '../test/fixtures';
 import { ingestCandidate, upsertEmbeddings } from './ingest';
 import { searchCandidatesByEmbedding, getJobOrder, getCandidateWithResume, insertScore } from './matching';
 
@@ -15,7 +16,7 @@ let jobId: string;
 const axis = (i: number) => { const v = new Array(3072).fill(0); v[i] = 1; return v; };
 
 beforeAll(async () => {
-  orgId = (await sql`select id from orgs where name = 'Sunday AI Work'`)[0].id;
+  orgId = await createFixtureOrg();
   const tag = Date.now();
   near = await ingestCandidate({ org_id: orgId, full_name: 'Near Match', email: `near-${tag}@example.com`, resume_text: 'react expert' });
   far = await ingestCandidate({ org_id: orgId, full_name: 'Far Match', email: `far-${tag}@example.com`, resume_text: 'accountant' });

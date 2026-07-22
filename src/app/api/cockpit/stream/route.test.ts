@@ -3,9 +3,8 @@ import { describe, it, expect, beforeAll, vi } from 'vitest';
 vi.mock('../../../../lib/auth', () => ({ auth: vi.fn() }));
 
 import type { Session } from 'next-auth';
-import postgres from 'postgres';
 import { auth } from '../../../../lib/auth';
-import { getEnv } from '../../../../lib/env';
+import { createFixtureOrg } from '../../../../test/fixtures';
 import { proposeDecision } from '../../../../services/decision-store';
 import { GET } from './route';
 
@@ -13,11 +12,10 @@ import { GET } from './route';
 // vi.mocked resolves it to the wrong overload. Pin the mock to the no-arg session getter.
 const mockAuth = vi.mocked(auth as unknown as () => Promise<Session | null>);
 
-const sql = postgres(getEnv('DATABASE_URL'), { max: 1 });
 let orgId: string;
 
 beforeAll(async () => {
-  orgId = (await sql`select id from orgs where name = 'Sunday AI Work'`)[0].id;
+  orgId = await createFixtureOrg();
 });
 
 describe('GET /api/cockpit/stream', () => {

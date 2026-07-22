@@ -1,14 +1,13 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { randomUUID } from 'node:crypto';
-import { eq } from 'drizzle-orm';
 import { db } from '../client';
-import { agents, orgs } from './index';
+import { agents } from './index';
+import { createFixtureOrg } from '../../test/fixtures';
 
 let orgId: string;
 
 beforeAll(async () => {
-  const [org] = await db.select().from(orgs).where(eq(orgs.name, 'Sunday AI Work'));
-  orgId = org.id;
+  orgId = await createFixtureOrg();
 });
 
 describe('agents table', () => {
