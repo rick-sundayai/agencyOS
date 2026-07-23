@@ -94,8 +94,41 @@ at the end of a long session.
   all for provisioning n8n's per-client agent key, and its "First user"
   section had no concrete command sequence. Both fixed as part of this entry
   (see `docs/deployment.md` diff same day).
-- **Status: waiting on Rick** to report back the three verification status
-  codes (agent-key-authenticated `/api/agent/decisions`, `/login`,
-  `/api/cockpit/stream`) as this task's definition-of-done evidence.
+
+**Pivot: `cloud-sql-proxy` from a laptop cannot reach staging's DB at all.**
+First attempt at the above failed with `config error: instance does not have
+IP of type "PUBLIC"`. Checked `infra/modules/stamp/main.tf`'s Cloud SQL
+`ip_configuration`: `ipv4_enabled = false`, private-network only (PSA) — by
+design, matches the "No public DB" compliance line already in
+`docs/deployment.md`. The plan's assumed proxy-from-laptop flow was never
+actually reachable; this would have blocked every future client onboarding
+the same way, not just staging.
+
+Asked Rick to choose between (a) extending the `migrate` image to also run
+these ops scripts, executed via `gcloud run jobs execute` — reusing VPC
+access + the `DATABASE_URL` secret the `migrate` job already has wired in, no
+proxy needed at all — or (b) temporarily granting the SQL instance a public
+IP scoped to his current IP. He picked (a), the reusable/permanent fix.
+
+Implemented: extended the `migrate` Dockerfile stage to also `COPY
+scripts/ops`, `scripts/agents`, `src/lib/agent-auth.ts`, `src/db/client.ts`,
+`src/db/schema` (previously it only contained `scripts/migrate.ts`).
+Verified locally — built the `migrate` target, confirmed both
+`bootstrap-staging-operator.ts` and `create-agent-key.ts` import cleanly
+inside the container (no missing-module errors) before pushing. Pushed the
+new image to `.../agencyos/migrate:bootstrap`. The `migrate` Cloud Run Job is
+now the reusable one-off ops-script runner for every future client, not just
+a migration-only job — documented in a Dockerfile comment at the stage.
+
+Confirmed the exact `gcloud logging read` filter for reading a job
+execution's stdout (`resource.type="cloud_run_job" AND
+resource.labels.job_name="migrate" AND resource.labels.location="us-central1"`)
+against real prior migration-run logs before handing it to Rick.
+
+- **Status: waiting on Rick** to run `gcloud run jobs update` + `execute`
+  (operator bootstrap, then n8n key) via this new path, and report back the
+  three verification status codes (agent-key-authenticated
+  `/api/agent/decisions`, `/login`, `/api/cockpit/stream`) as this task's
+  definition-of-done evidence.
 
 <!-- Next entry: Task 6 completion evidence, then Task 7 teardown result. -->

@@ -14,11 +14,21 @@ ENV DATABASE_URL=postgres://build:build@localhost:5432/build \
     NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
-# --- migrate target: full deps + tsx, runs drizzle migrations then exits ---
+# --- migrate target: full deps + tsx, runs drizzle migrations then exits.
+# Also doubles as the one-off ops-script runner (bootstrap-staging-operator,
+# create-agent-key): the Cloud SQL instance has no public IP, so these only
+# run from inside the VPC — via `gcloud run jobs execute migrate
+# --command=... --args=...`, reusing this job's existing VPC access instead
+# of a laptop-side cloud-sql-proxy. ---
 FROM deps AS migrate
 COPY drizzle ./drizzle
 COPY scripts/migrate.ts ./scripts/migrate.ts
+COPY scripts/ops ./scripts/ops
+COPY scripts/agents ./scripts/agents
 COPY src/lib/env.ts ./src/lib/env.ts
+COPY src/lib/agent-auth.ts ./src/lib/agent-auth.ts
+COPY src/db/client.ts ./src/db/client.ts
+COPY src/db/schema ./src/db/schema
 COPY tsconfig.json ./
 CMD ["npx", "tsx", "scripts/migrate.ts"]
 
