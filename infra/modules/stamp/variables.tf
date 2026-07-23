@@ -33,8 +33,7 @@ variable "migrate_image" {
 }
 
 variable "n8n_image" {
-  type    = string
-  default = "docker.n8n.io/n8nio/n8n:1.99.1"
+  type = string # full AR path incl. tag (Cloud Run can't pull docker.n8n.io directly)
 }
 
 variable "db_tier" {

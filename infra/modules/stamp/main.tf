@@ -14,6 +14,42 @@ resource "google_project" "stamp" {
   deletion_policy = "PREVENT"
 }
 
+data "google_project" "stamp" {
+  project_id = google_project.stamp.project_id
+}
+
+# Org-wide Domain Restricted Sharing blocks allUsers IAM bindings by default;
+# the app's public URL needs one, so this stamp's project gets an exception
+# rather than loosening the constraint org-wide.
+resource "google_org_policy_policy" "allow_public_invoker" {
+  name   = "projects/${google_project.stamp.project_id}/policies/iam.allowedPolicyMemberDomains"
+  parent = "projects/${google_project.stamp.project_id}"
+  spec {
+    rules {
+      allow_all = "TRUE"
+    }
+  }
+}
+
+locals {
+  # app_image/migrate_image are "<location>-docker.pkg.dev/<project>/<repo>/<name>:<tag>"
+  ar_parts    = split("/", var.app_image)
+  ar_location = trimsuffix(local.ar_parts[0], "-docker.pkg.dev")
+  ar_project  = local.ar_parts[1]
+  ar_repo     = local.ar_parts[2]
+}
+
+# Cloud Run pulls app/migrate images from the ops project's registry; its
+# per-project Service Agent needs read access there since the images live
+# in a different project than the one running them.
+resource "google_artifact_registry_repository_iam_member" "stamp_pulls_images" {
+  project    = local.ar_project
+  location   = local.ar_location
+  repository = local.ar_repo
+  role       = "roles/artifactregistry.reader"
+  member     = "serviceAccount:service-${data.google_project.stamp.number}@serverless-robot-prod.iam.gserviceaccount.com"
+}
+
 resource "google_project_service" "apis" {
   for_each = toset([
     "run.googleapis.com",
@@ -66,7 +102,8 @@ resource "google_sql_database_instance" "pg" {
   region           = var.region
   database_version = "POSTGRES_17"
   settings {
-    tier = var.db_tier
+    tier    = var.db_tier
+    edition = "ENTERPRISE"
     ip_configuration {
       ipv4_enabled    = false
       private_network = google_compute_network.vpc.id
@@ -144,6 +181,7 @@ locals {
     "jobdiva-username"   = var.jobdiva_username
     "jobdiva-password"   = var.jobdiva_password
   }
+  secret_has_value = { for k, v in local.secrets : k => nonsensitive(v != "") }
 }
 
 resource "google_secret_manager_secret" "s" {
@@ -157,7 +195,7 @@ resource "google_secret_manager_secret" "s" {
 }
 
 resource "google_secret_manager_secret_version" "s" {
-  for_each    = local.secrets
+  for_each    = { for k, v in local.secrets : k => v if local.secret_has_value[k] }
   secret      = google_secret_manager_secret.s[each.key].id
   secret_data = each.value
 }
@@ -212,9 +250,10 @@ resource "google_project_iam_member" "deployer_sa_user" {
 
 # ---------- Cloud Run: app ----------
 resource "google_cloud_run_v2_service" "app" {
-  project  = google_project.stamp.project_id
-  name     = "app"
-  location = var.region
+  project             = google_project.stamp.project_id
+  name                = "app"
+  location            = var.region
+  deletion_protection = false
   template {
     service_account = google_service_account.app.email
     scaling {
@@ -264,25 +303,27 @@ resource "google_cloud_run_v2_service" "app" {
       }
     }
   }
-  depends_on = [google_secret_manager_secret_version.s]
+  depends_on = [google_secret_manager_secret_version.s, google_artifact_registry_repository_iam_member.stamp_pulls_images]
   lifecycle {
     ignore_changes = [template[0].containers[0].image] # CI owns the image
   }
 }
 
 resource "google_cloud_run_v2_service_iam_member" "app_public" {
-  project  = google_project.stamp.project_id
-  location = var.region
-  name     = google_cloud_run_v2_service.app.name
-  role     = "roles/run.invoker"
-  member   = "allUsers"
+  project    = google_project.stamp.project_id
+  location   = var.region
+  name       = google_cloud_run_v2_service.app.name
+  role       = "roles/run.invoker"
+  member     = "allUsers"
+  depends_on = [google_org_policy_policy.allow_public_invoker]
 }
 
 # ---------- Cloud Run: n8n (IAM-only; reach editor via `gcloud run services proxy`) ----------
 resource "google_cloud_run_v2_service" "n8n" {
-  project  = google_project.stamp.project_id
-  name     = "n8n"
-  location = var.region
+  project             = google_project.stamp.project_id
+  name                = "n8n"
+  location            = var.region
+  deletion_protection = false
   template {
     service_account = google_service_account.n8n.email
     scaling {
@@ -326,12 +367,14 @@ resource "google_cloud_run_v2_service" "n8n" {
         value = google_cloud_run_v2_service.app.uri
       }
       dynamic "env" {
-        for_each = { DB_POSTGRESDB_PASSWORD = "n8n-db-password",
+        for_each = { for k, v in {
+          DB_POSTGRESDB_PASSWORD = "n8n-db-password",
           N8N_ENCRYPTION_KEY     = "n8n-encryption-key",
           AGENCYOS_AGENT_API_KEY = "agent-api-key",
           JOBDIVA_CLIENT_ID      = "jobdiva-client-id",
           JOBDIVA_USERNAME       = "jobdiva-username",
-        JOBDIVA_PASSWORD = "jobdiva-password" }
+          JOBDIVA_PASSWORD       = "jobdiva-password"
+        } : k => v if local.secret_has_value[v] }
         content {
           name = env.key
           value_source {
@@ -353,9 +396,10 @@ resource "google_cloud_run_v2_service" "n8n" {
 
 # ---------- Cloud Run Job: migrate ----------
 resource "google_cloud_run_v2_job" "migrate" {
-  project  = google_project.stamp.project_id
-  name     = "migrate"
-  location = var.region
+  project             = google_project.stamp.project_id
+  name                = "migrate"
+  location            = var.region
+  deletion_protection = false
   template {
     template {
       service_account = google_service_account.app.email
@@ -381,7 +425,7 @@ resource "google_cloud_run_v2_job" "migrate" {
       max_retries = 0
     }
   }
-  depends_on = [google_secret_manager_secret_version.s]
+  depends_on = [google_secret_manager_secret_version.s, google_artifact_registry_repository_iam_member.stamp_pulls_images]
   lifecycle {
     ignore_changes = [template[0].template[0].containers[0].image]
   }

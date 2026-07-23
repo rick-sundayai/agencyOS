@@ -40,6 +40,7 @@ module "stamp" {
   alert_email             = var.alert_email
   app_image               = "${var.artifact_registry}/app:bootstrap"
   migrate_image           = "${var.artifact_registry}/migrate:bootstrap"
+  n8n_image               = "${var.artifact_registry}/n8n:1.99.1"
   sql_deletion_protection = false
 }
 

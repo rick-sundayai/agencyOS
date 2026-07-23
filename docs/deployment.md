@@ -19,8 +19,8 @@ commands. Not required again after the first real client exists.
 > `terraform apply` (skip this for every client after staging exists):
 > ```bash
 > AR=$(terraform -chdir=infra/ops output -raw artifact_registry)
-> docker build --target runtime -t "$AR/app:bootstrap" .
-> docker build --target migrate -t "$AR/migrate:bootstrap" .
+> docker build --platform linux/amd64 --target runtime -t "$AR/app:bootstrap" .
+> docker build --platform linux/amd64 --target migrate -t "$AR/migrate:bootstrap" .
 > docker push "$AR/app:bootstrap"
 > docker push "$AR/migrate:bootstrap"
 > ```
