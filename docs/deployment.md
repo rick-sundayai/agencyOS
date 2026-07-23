@@ -33,13 +33,41 @@ commands. Not required again after the first real client exists.
 4. Add the stamp to `infra/stamps.json`.
 5. Promote the current release: `gh workflow run promote -f tag=<tag> -f stamps=<client>`.
 6. Create the client's operator user (see "First user").
-7. If `custom_domain` is set: add the DNS records `terraform apply` printed.
+7. Provision the client's n8n agent key (see "n8n agent key") — n8n's
+   `AGENCYOS_AGENT_API_KEY` has no default and the agent API stays 401-locked
+   until this step runs.
+8. If `custom_domain` is set: add the DNS records `terraform apply` printed.
 
 ## First user
-There is no signup flow. Insert the operator user directly (bcrypt hash):
-run `npx tsx` locally with DATABASE_URL pointed at the stamp via the Cloud SQL
-Auth Proxy, and insert into `users` the way `src/db/seed.ts` does — but ONLY the
-user row. Never run `db:seed` itself against a stamp.
+There is no signup flow. Insert the operator user directly (bcrypt hash) via
+the Cloud SQL Auth Proxy. This is the real, tested connection sequence
+(confirmed against the `staging` stamp):
+```bash
+cloud-sql-proxy <client-project>:us-central1:agencyos &   # wait for "Listening on 127.0.0.1:5432"
+DB_SECRET=$(gcloud secrets versions access latest --secret=database-url --project=<client-project>)
+DB_PASS=$(echo "$DB_SECRET" | sed -E 's#postgres://app:([^@]+)@.*#\1#')
+export DATABASE_URL="postgres://app:${DB_PASS}@127.0.0.1:5432/agency"
+```
+Then insert into `users` the way `src/db/seed.ts` does — but ONLY the user
+row. Never run `db:seed` itself against a stamp.
+`scripts/ops/bootstrap-staging-operator.ts` is a working reference
+implementation of this exact pattern, but it's hardcoded to the internal ops
+admin account (org "Sunday AI Work", `rick@sundayaiwork.com`) — copy and
+adapt the org/email/role rather than running it as-is against a client stamp.
+
+## n8n agent key
+Each stamp needs its own real per-client key; the module ships no default.
+```bash
+npx tsx scripts/agents/create-agent-key.ts --name n8n --org "<Client Org Name>"
+gcloud run services update n8n --project agencyos-<client> --region us-central1 \
+  --update-env-vars AGENCYOS_AGENT_API_KEY="<printed key>"
+```
+Verify it actually authenticates, not just that it's 401-guarded without one:
+```bash
+APP_URL=$(terraform -chdir=infra/stamps/<client> output -raw app_url)
+curl -s -o /dev/null -w '%{http_code}\n' -H "x-agent-api-key: <printed key>" "$APP_URL/api/agent/decisions"
+```
+Expected: `200`.
 
 ## Release + promote
 - Merge to main → auto-deploys staging (migrate → deploy → smoke).
