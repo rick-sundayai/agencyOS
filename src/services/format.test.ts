@@ -11,7 +11,7 @@ describe('formatForEmbedding', () => {
   });
 
   it('maps en/em dashes to hyphen and curly quotes to straight', () => {
-    expect(formatForEmbedding('2020 – 2024 "React" \'dev\''))
+    expect(formatForEmbedding('2020 – 2024 “React” ‘dev’'))
       .toBe('2020 - 2024 "React" \'dev\'');
   });
 
