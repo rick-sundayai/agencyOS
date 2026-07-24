@@ -166,4 +166,89 @@ n8n's live Cloud Run env now carries the correct, verified 64-char key
 (re-added as a new `agent-api-key` secret version, new revision deployed).
 Task 6 complete.
 
-<!-- Next entry: Task 7 teardown result. -->
+## 2026-07-24 — first real click-through testing surfaces three more bugs
+
+With Tasks 5–6 done, Rick logged into the live app as the operator
+(`rick@sundayaiwork.com`) and clicked around for the first time. Browser
+policy blocked the agent from loading the app directly in its own preview
+pane, and the agent does not enter account passwords into login forms under
+any circumstance — so this was Rick driving the UI and reporting back what
+broke, with the agent diagnosing from GCP/Cloud Run logs and source code.
+All three findings below are real, permanent module/app bugs, not
+staging-only issues — every future client stamp would have hit the same
+three walls.
+
+**1. "Source" (JobDiva import) returned `502` — `jobdiva_unavailable`.**
+Root-caused before any fix was attempted: `jobdiva-client-id`/`username`/
+`password` had zero Secret Manager versions in staging, and separately
+`infra/stamps/staging/main.tf` (the template every future client stamp gets
+copied from) never declared or passed these variables through to the module
+at all — `docs/deployment.md` already told operators to drop JobDiva creds
+in `secrets.auto.tfvars`, but they'd have silently gone nowhere. Fixed in
+`71b4996` (wire the root-module variables through). Rick added his real
+JobDiva credentials to a gitignored `secrets.auto.tfvars` and applied — plan
+reviewed first (3 new secret versions, `n8n` env changes only), applied
+clean (3 added, 3 changed).
+
+Retested — same `502` again. Second, deeper cause: the `JOBDIVA_*` secrets
+were only ever wired to **n8n's** container (which doesn't even use them for
+anything yet) — the **`app`** Cloud Run service, where `/api/jobs/import`
+actually runs and reads `process.env.JOBDIVA_CLIENT_ID` directly
+(`src/services/jobdiva.ts`), had neither the env vars nor the Secret Manager
+IAM grants. Fixed in `fee47fd` (env vars + `app_reads` IAM grants, filtered
+by the existing `secret_has_value` pattern). Plan reviewed (3 new IAM
+grants, `app` env changes, `n8n` cosmetic-only), applied clean (3 added, 2
+changed). JobDiva import confirmed working after this.
+
+**2. Sourcing ("Source" → run pipeline) failed: `Missing required env var:
+N8N_WEBHOOK_URL`.** The `app` service never had this env var wired at all —
+another gap the plan/docs never caught because nothing had exercised this
+path against real infra before. But setting the URL alone would not have
+been enough: `src/lib/n8n.ts`'s `fireSourcingWebhook` sent a plain,
+unauthenticated `fetch()`, and n8n's Cloud Run service has **no public
+invoker by design** — the module already carried the comment `# NOTE: no
+allUsers invoker on n8n — IAM auth required by omission`, an existing
+decision this call simply never honored. Fixed in two parts:
+- `a25c447` (app code, TDD): sign the webhook request with a Google ID
+  token scoped to n8n's URL, via `google-auth-library` (already a
+  dependency — same pattern as `src/services/embed.ts`'s Vertex calls),
+  gated on `K_SERVICE` (Cloud Run only; local/dev n8n has no such gate).
+  5 new tests in `src/lib/n8n.test.ts`.
+- `3b8108a` (infra): wire `N8N_WEBHOOK_URL` on `app` and grant
+  `roles/run.invoker` to app's service account on n8n. Hit a genuine
+  Terraform circular-dependency error along the way — n8n's existing
+  `AGENCYOS_URL` env already reads `app.uri`, so having `app`'s new env read
+  `n8n.uri` back would cycle. Resolved by constructing n8n's URL from the
+  project-number format (`https://n8n-<project_number>.<region>.run.app`)
+  instead of the live resource attribute — verified live first (`curl` →
+  `403` from Cloud Run's IAM layer, not a DNS/routing failure) before
+  committing to relying on it.
+
+Both commits required a `git push origin main` (15 commits, explicit
+go-ahead obtained first) so the code fix could reach staging through the
+normal `deploy-staging` CI pipeline, not a manual image build — confirmed
+via `gh run view 30087829837`, all steps green. Terraform plan for the
+env-var + IAM-grant side reviewed (1 added, 3 changed, cosmetic-only on the
+other two) and applied clean.
+
+**3. Retested — now a clean `404` from n8n itself, not a `403` or missing-env
+error.** This is not a bug: it means the request now correctly reaches n8n
+(auth fix confirmed working) and n8n simply has **no workflows imported**.
+Confirmed: `n8n/dist/*.json` (built via `node n8n/build.mjs` from
+`n8n/workflows/src/*.workflow.mjs`) are gitignored build artifacts never
+built for staging; the existing `n8n/apply.sh` importer only works against
+a local `docker compose` n8n instance (`docker compose exec n8n n8n
+import:workflow ...`), with no Cloud Run equivalent; and n8n has no
+pre-seeded admin account (no `N8N_BASIC_AUTH_*` configured) — first visit
+will prompt its own owner-account setup wizard. **Deliberately left
+unfixed** — Rick called this a distinct, larger piece of work (populating a
+brand-new n8n instance for the first time, not a bug fix) and ended testing
+for the day.
+
+- **Status:** app-side sourcing plumbing (JobDiva import, n8n auth/wiring)
+  is fully correct and verified end-to-end on real infra. n8n workflow
+  content (the actual sourcing/screening/etc. automations) is the next
+  distinct piece of work, whenever picked back up. Task 7 (teardown) still
+  not started — mandatory STOP gate, needs Rick's fresh explicit go-ahead.
+
+<!-- Next entry: n8n workflow bring-up, or Task 7 teardown result. -->
