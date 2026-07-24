@@ -289,6 +289,16 @@ resource "google_cloud_run_v2_service" "app" {
         name  = "VERTEX_LOCATION"
         value = var.region
       }
+      env {
+        # Project-number URL form, not google_cloud_run_v2_service.n8n.uri:
+        # n8n's own env already references app.uri, so referencing n8n.uri here
+        # would be a circular resource dependency. This form is stable and
+        # depends only on the project number, confirmed live (403 from Cloud
+        # Run's IAM layer, not a DNS/routing failure) against the deployed
+        # service before relying on it here.
+        name  = "N8N_WEBHOOK_URL"
+        value = "https://n8n-${data.google_project.stamp.number}.${var.region}.run.app/webhook"
+      }
       dynamic "env" {
         for_each = { for k, v in {
           DATABASE_URL      = "database-url",
@@ -400,6 +410,13 @@ resource "google_cloud_run_v2_service" "n8n" {
   }
 }
 # NOTE: no allUsers invoker on n8n — IAM auth required by omission.
+resource "google_cloud_run_v2_service_iam_member" "app_invokes_n8n" {
+  project  = google_project.stamp.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.n8n.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.app.email}"
+}
 
 # ---------- Cloud Run Job: migrate ----------
 resource "google_cloud_run_v2_job" "migrate" {
