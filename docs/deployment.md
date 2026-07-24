@@ -39,33 +39,58 @@ commands. Not required again after the first real client exists.
 8. If `custom_domain` is set: add the DNS records `terraform apply` printed.
 
 ## First user
-There is no signup flow. Insert the operator user directly (bcrypt hash) via
-the Cloud SQL Auth Proxy. This is the real, tested connection sequence
-(confirmed against the `staging` stamp):
+There is no signup flow, and the DB has no public IP (`ipv4_enabled = false`
+by design — `cloud-sql-proxy` from a laptop cannot reach it, full stop).
+Insert the operator user by running a script inside the VPC via the
+`migrate` Cloud Run Job, which already has VPC access and `DATABASE_URL`
+wired in and doubles as the ops-script runner (see the Dockerfile's
+`migrate`-stage comment):
 ```bash
-cloud-sql-proxy <client-project>:us-central1:agencyos &   # wait for "Listening on 127.0.0.1:5432"
-DB_SECRET=$(gcloud secrets versions access latest --secret=database-url --project=<client-project>)
-DB_PASS=$(echo "$DB_SECRET" | sed -E 's#postgres://app:([^@]+)@.*#\1#')
-export DATABASE_URL="postgres://app:${DB_PASS}@127.0.0.1:5432/agency"
+gcloud run jobs execute migrate --project agencyos-<client> --region us-central1 \
+  --args="npx,tsx,scripts/ops/bootstrap-staging-operator.ts" --wait
+gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="migrate" AND resource.labels.location="us-central1"' \
+  --project=agencyos-<client> --format="value(textPayload)" --order=asc --limit=10 --freshness=5m
 ```
-Then insert into `users` the way `src/db/seed.ts` does — but ONLY the user
-row. Never run `db:seed` itself against a stamp.
-`scripts/ops/bootstrap-staging-operator.ts` is a working reference
-implementation of this exact pattern, but it's hardcoded to the internal ops
-admin account (org "Sunday AI Work", `rick@sundayaiwork.com`) — copy and
-adapt the org/email/role rather than running it as-is against a client stamp.
+The password prints in that log output — save it to a password manager now,
+it's never shown again. `scripts/ops/bootstrap-staging-operator.ts` is a
+working reference implementation of this pattern, but it's hardcoded to the
+internal ops admin account (org "Sunday AI Work", `rick@sundayaiwork.com`)
+— copy and adapt the org/email/role rather than running it as-is against a
+client stamp.
 
 ## n8n agent key
 Each stamp needs its own real per-client key; the module ships no default.
+Run via the same `migrate` job, and auto-capture the key straight from logs
+— manual copy-paste of a 64-char hex key is genuinely error-prone (this bit
+staging's own bring-up: a truncated key silently produced 401s until the
+mismatch was traced to the shell variable, not the infra):
 ```bash
-npx tsx scripts/agents/create-agent-key.ts --name n8n --org "<Client Org Name>"
-gcloud run services update n8n --project agencyos-<client> --region us-central1 \
-  --update-env-vars AGENCYOS_AGENT_API_KEY="<printed key>"
+gcloud run jobs execute migrate --project agencyos-<client> --region us-central1 \
+  --args="npx,tsx,scripts/agents/create-agent-key.ts,--name,n8n,--org,<Client Org Name>" --wait
+sleep 15
+N8N_KEY=$(gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="migrate" AND resource.labels.location="us-central1"' \
+  --project=agencyos-<client> --format="value(textPayload)" --order=desc --limit=20 --freshness=2m \
+  | grep -E '^[0-9a-f]{64}$' | head -1)
+echo "N8N_KEY length: ${#N8N_KEY}"   # must print 64 before continuing
 ```
-Verify it actually authenticates, not just that it's 401-guarded without one:
+`AGENCYOS_AGENT_API_KEY` on the n8n service is wired to a Secret Manager
+`secret_key_ref`, not a plain env var — `gcloud run services update
+--update-env-vars` fails with a type-conflict error. Update the secret's
+value instead, then force a new revision so n8n re-resolves it (Cloud Run
+pins a secret's `latest` version at revision-creation time; it does not
+live-track):
+```bash
+printf '%s' "$N8N_KEY" | gcloud secrets versions add agent-api-key --project agencyos-<client> --data-file=-
+gcloud run services update n8n --project agencyos-<client> --region us-central1 \
+  --revision-suffix="key-$(date +%s)"
+```
+Verify it actually authenticates, not just that it's 401-guarded without one.
+Note this checks the DB-backed `agents` table (`requireAgentKey` in
+`src/lib/agent-auth.ts`) — the secret update above is only for n8n's own
+outgoing calls, it's not what this check reads:
 ```bash
 APP_URL=$(terraform -chdir=infra/stamps/<client> output -raw app_url)
-curl -s -o /dev/null -w '%{http_code}\n' -H "x-agent-api-key: <printed key>" "$APP_URL/api/agent/decisions"
+curl -s -o /dev/null -w '%{http_code}\n' -H "x-agent-api-key: $N8N_KEY" "$APP_URL/api/agent/decisions"
 ```
 Expected: `200`.
 
@@ -86,6 +111,48 @@ stops using the column.
 then open http://localhost:5678. The service has no public access.
 n8n workflows call the app at env `AGENCYOS_URL` with header key from
 `AGENCYOS_AGENT_API_KEY`.
+
+## Testing a live stamp
+
+**Re-run the smoke test on demand** (same three checks CI runs after every
+deploy — login page, agent-key guard, cockpit stream):
+```bash
+APP_URL=$(terraform -chdir=infra/stamps/<client> output -raw app_url)
+SMOKE_BASE_URL="$APP_URL" npx tsx scripts/smoke.ts
+```
+
+**Log in as a human**: `$APP_URL/login`, with the operator credentials from
+"First user" above.
+
+**GCP Console** (swap `<client>` for the project id, e.g. `agencyos-staging`):
+| What | Where |
+|---|---|
+| App/n8n requests, logs, revisions, traffic split | `console.cloud.google.com/run?project=agencyos-<client>` |
+| `migrate` job execution history (also the ops-script runner) | `console.cloud.google.com/run/jobs?project=agencyos-<client>` |
+| Cloud SQL — connections, CPU/memory, query insights | `console.cloud.google.com/sql/instances?project=agencyos-<client>` |
+| Secret Manager — which secret versions are live | `console.cloud.google.com/security/secret-manager?project=agencyos-<client>` |
+| Logs Explorer — every service, filterable | `console.cloud.google.com/logs/query?project=agencyos-<client>` |
+| Uptime check + email alert on downtime | `console.cloud.google.com/monitoring/uptime?project=agencyos-<client>` |
+
+**CLI equivalents:**
+```bash
+gcloud run services logs read app --project agencyos-<client> --region us-central1 --limit=50
+gcloud run jobs executions list --job=migrate --project agencyos-<client> --region us-central1
+gh run list --workflow=deploy-staging
+gh run view <run-id> --log
+```
+
+**In the repo:**
+- `docs/deployment-log.md` — narrative log of every deployment milestone and
+  bug found in prod-like conditions; append here after a meaningful test
+  session, not just at task boundaries.
+- `.superpowers/sdd/progress.md` — local, gitignored task ledger for
+  whichever plan is currently in flight.
+- `git log --oneline` — every infra/app change that's actually shipped.
+
+**Ordinary redeploy loop** once a stamp exists: just `git push` to `main` —
+`deploy-staging` runs automatically (build → migrate → deploy → smoke). No
+manual image builds needed after the very first bootstrap.
 
 ## Database access (break-glass)
 `cloud-sql-proxy agencyos-<client>:us-central1:agencyos` with your IAM user;
