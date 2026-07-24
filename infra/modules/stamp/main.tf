@@ -214,7 +214,8 @@ resource "google_service_account" "n8n" {
 }
 
 resource "google_secret_manager_secret_iam_member" "app_reads" {
-  for_each  = toset(["database-url", "auth-secret", "agent-api-key"])
+  for_each = toset(["database-url", "auth-secret", "agent-api-key",
+  "jobdiva-client-id", "jobdiva-username", "jobdiva-password"])
   project   = google_project.stamp.project_id
   secret_id = google_secret_manager_secret.s[each.key].secret_id
   role      = "roles/secretmanager.secretAccessor"
@@ -289,8 +290,14 @@ resource "google_cloud_run_v2_service" "app" {
         value = var.region
       }
       dynamic "env" {
-        for_each = { DATABASE_URL = "database-url", AUTH_SECRET = "auth-secret",
-        AGENT_API_KEY = "agent-api-key" }
+        for_each = { for k, v in {
+          DATABASE_URL      = "database-url",
+          AUTH_SECRET       = "auth-secret",
+          AGENT_API_KEY     = "agent-api-key",
+          JOBDIVA_CLIENT_ID = "jobdiva-client-id",
+          JOBDIVA_USERNAME  = "jobdiva-username",
+          JOBDIVA_PASSWORD  = "jobdiva-password"
+        } : k => v if local.secret_has_value[v] }
         content {
           name = env.key
           value_source {
