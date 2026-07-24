@@ -45,7 +45,11 @@ for (const candidate_id of candidate_ids) {
       .replaceAll('{start_date}', '')
       .replaceAll('{end_date}', '')
       .replaceAll('{resume_text}', cr.resume.llm_text.slice(0, 30000))
-      .replaceAll('{candidate_name}', cand.full_name)
+      // Real name is deliberately withheld from the scoring call — {resume_text} above is
+      // already name-redacted, and passing the real name here via a separate placeholder
+      // would defeat that (and reintroduce the bias the redaction exists to eliminate).
+      // This field is otherwise unused: parseScoreOutput never reads metadata.candidate_name.
+      .replaceAll('{candidate_name}', '[NAME]')
       .replaceAll('{evaluated_at}', new Date().toISOString());
 
     const resp = await generateJson('gemini-2.5-flash', spec.system, user);
