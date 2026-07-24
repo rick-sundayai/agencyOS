@@ -98,8 +98,8 @@ export async function importCandidatesForJob(
       });
       if (!res.deduped) jobdiva_new++;
 
-      if (res.document_id && resumeText) {
-        const chunks = chunkText(resumeText);
+      if (res.document_id && res.embedding_text) {
+        const chunks = chunkText(res.embedding_text);
         const vectors = await Promise.all(chunks.map((c) => deps.embed(c)));
         await upsertEmbeddings({
           org_id: input.org_id, subject_type: 'candidate_document', subject_id: res.document_id,

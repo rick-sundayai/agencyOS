@@ -24,6 +24,22 @@ describe('ingestCandidate', () => {
     expect(r.document_id).not.toBeNull();
   });
 
+  it('redacts PII from resume_text into embedding_text', async () => {
+    const r = await ingestCandidate({
+      org_id: orgId, full_name: 'Redact Target',
+      email: `redact-${Date.now()}@example.com`,
+      resume_text: 'Reach Redact Target at redact@example.com or (555) 555-5555.',
+    });
+    expect(r.embedding_text).toBe('Reach Redact Target at [EMAIL] or [PHONE].');
+  });
+
+  it('returns null embedding_text when there is no resume_text', async () => {
+    const r = await ingestCandidate({
+      org_id: orgId, full_name: 'No Resume', email: `no-resume-${Date.now()}@example.com`,
+    });
+    expect(r.embedding_text).toBeNull();
+  });
+
   it('dedupes on email, fills phone, bumps the document version', async () => {
     const r = await ingestCandidate({
       org_id: orgId, full_name: 'Ingest One', email: email.toUpperCase(),

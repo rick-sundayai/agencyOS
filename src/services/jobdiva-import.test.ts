@@ -59,6 +59,27 @@ describe('importCandidatesForJob', () => {
     expect(embRows.length).toBeGreaterThanOrEqual(1);
   });
 
+  it('embeds redacted resume text, not the raw PII-bearing text', async () => {
+    const { orgId } = await seedTestAgentInFreshOrg();
+    const jobId = await seedJob(orgId);
+    const jd = fakeJobDiva(
+      [hit('jd-1', 'Ada L')],
+      { 'jd-1': 'Ada resume: reach me at ada@x.test or (555) 555-5555.' },
+    );
+    const captured: string[] = [];
+    const capturingEmbed = async (text: string) => { captured.push(text); return VEC; };
+
+    await importCandidatesForJob(
+      { org_id: orgId, job_order_id: jobId }, { jobdiva: jd, embed: capturingEmbed },
+    );
+
+    expect(captured).toEqual(['Ada resume: reach me at [EMAIL] or [PHONE].']);
+    const embRows = await db.select().from(embeddings).where(and(
+      eq(embeddings.org_id, orgId), eq(embeddings.subject_type, 'candidate_document'),
+    ));
+    expect(embRows[0].content).toBe('Ada resume: reach me at [EMAIL] or [PHONE].');
+  });
+
   it('skips resume fetch + embedding for known candidates that already have a document', async () => {
     const { orgId } = await seedTestAgentInFreshOrg();
     const jobId = await seedJob(orgId);

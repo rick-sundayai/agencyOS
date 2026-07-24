@@ -70,6 +70,16 @@ describe('getJobOrder / getCandidateWithResume', () => {
     expect(r?.candidate.full_name).toBe('Near Match');
     expect(r?.resume?.parsed_text).toBe('react expert');
   });
+
+  it('returns a name-redacted llm_text alongside the unredacted parsed_text', async () => {
+    const c = await ingestCandidate({
+      org_id: orgId, full_name: 'Llm Redacted', email: `llm-redact-${Date.now()}@example.com`,
+      resume_text: 'Llm Redacted is a react expert.',
+    });
+    const r = await getCandidateWithResume(orgId, c.candidate_id);
+    expect(r?.resume?.parsed_text).toBe('Llm Redacted is a react expert.');
+    expect(r?.resume?.llm_text).toBe('[NAME] is a react expert.');
+  });
 });
 
 describe('insertScore', () => {

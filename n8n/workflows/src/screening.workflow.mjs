@@ -44,7 +44,7 @@ for (const candidate_id of candidate_ids) {
       .replaceAll('{pay_rate_max}', '')
       .replaceAll('{start_date}', '')
       .replaceAll('{end_date}', '')
-      .replaceAll('{resume_text}', cr.resume.parsed_text.slice(0, 30000))
+      .replaceAll('{resume_text}', cr.resume.llm_text.slice(0, 30000))
       .replaceAll('{candidate_name}', cand.full_name)
       .replaceAll('{evaluated_at}', new Date().toISOString());
 

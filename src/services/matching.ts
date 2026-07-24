@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { and, desc, eq, sql as dsql } from 'drizzle-orm';
 import { db } from '../db/client';
 import { candidates, candidate_documents, job_orders, scores } from '../db/schema';
+import { redactForLLM } from './redact';
 
 export async function searchCandidatesByEmbedding(
   orgId: string, queryEmbedding: number[], limit = 10,
@@ -43,7 +44,9 @@ export async function getCandidateWithResume(orgId: string, id: string) {
     .limit(1);
   return {
     candidate: cand,
-    resume: doc ? { document_id: doc.id, parsed_text: doc.parsed_text } : null,
+    resume: doc
+      ? { document_id: doc.id, parsed_text: doc.parsed_text, llm_text: redactForLLM(doc.parsed_text, cand.full_name) }
+      : null,
   };
 }
 

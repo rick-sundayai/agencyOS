@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { and, eq, sql as dsql } from 'drizzle-orm';
 import { db } from '../db/client';
 import { candidates, candidate_documents, embeddings } from '../db/schema';
+import { redactForEmbedding } from './redact';
 
 export const CandidateIngestSchema = z.strictObject({
   org_id: z.uuid(),
@@ -16,7 +17,7 @@ export const CandidateIngestSchema = z.strictObject({
 });
 
 export async function ingestCandidate(input: unknown): Promise<{
-  candidate_id: string; document_id: string | null; deduped: boolean;
+  candidate_id: string; document_id: string | null; deduped: boolean; embedding_text: string | null;
 }> {
   const p = CandidateIngestSchema.parse(input);
 
@@ -88,7 +89,8 @@ export async function ingestCandidate(input: unknown): Promise<{
       documentId = doc.id;
     }
 
-    return { candidate_id: candidateId, document_id: documentId, deduped };
+    const embedding_text = p.resume_text ? redactForEmbedding(p.resume_text) : null;
+    return { candidate_id: candidateId, document_id: documentId, deduped, embedding_text };
   });
 }
 
