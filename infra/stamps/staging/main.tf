@@ -26,6 +26,24 @@ variable "artifact_registry" {
   type = string # e.g. us-central1-docker.pkg.dev/agencyos-ops/agencyos
 }
 
+variable "jobdiva_client_id" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+variable "jobdiva_username" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+variable "jobdiva_password" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
 provider "google" {
   region = "us-central1"
 }
@@ -42,6 +60,9 @@ module "stamp" {
   migrate_image           = "${var.artifact_registry}/migrate:bootstrap"
   n8n_image               = "${var.artifact_registry}/n8n:1.99.1"
   sql_deletion_protection = false
+  jobdiva_client_id       = var.jobdiva_client_id
+  jobdiva_username        = var.jobdiva_username
+  jobdiva_password        = var.jobdiva_password
 }
 
 output "app_url" {
