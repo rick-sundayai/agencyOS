@@ -125,10 +125,45 @@ execution's stdout (`resource.type="cloud_run_job" AND
 resource.labels.job_name="migrate" AND resource.labels.location="us-central1"`)
 against real prior migration-run logs before handing it to Rick.
 
-- **Status: waiting on Rick** to run `gcloud run jobs update` + `execute`
-  (operator bootstrap, then n8n key) via this new path, and report back the
-  three verification status codes (agent-key-authenticated
-  `/api/agent/decisions`, `/login`, `/api/cockpit/stream`) as this task's
-  definition-of-done evidence.
+**More real bugs hit and fixed live before this closed out:**
 
-<!-- Next entry: Task 6 completion evidence, then Task 7 teardown result. -->
+1. `gcloud run jobs execute --wait` failed outright with `INVALID_ARGUMENT:
+   Unknown name "priorityTier" at 'overrides'` — the local `gcloud` CLI
+   (549.0.1) was stale enough to send a field the enabled Cloud Run API
+   didn't recognize. Fixed with `gcloud components update` (→ 577.0.0).
+2. First attempt at pointing n8n's env at the new key used `gcloud run
+   services update n8n --update-env-vars AGENCYOS_AGENT_API_KEY=...`, which
+   failed: `Cannot update environment variable ... because it has already
+   been set with a different type`. That var is wired as a Secret Manager
+   `secret_key_ref`, not a plain literal — can't override it directly.
+   **Wrong turn taken here**: initially assumed fixing this secret +
+   redeploying n8n was *the* fix for the 401 on `/api/agent/decisions`. It
+   wasn't — that route's auth is entirely DB-backed (`requireAgentKey` in
+   `src/lib/agent-auth.ts`, hash lookup against the `agents` table), and
+   never reads `AGENCYOS_AGENT_API_KEY`/`AGENT_API_KEY` at all. Updating the
+   secret was still worth doing (n8n's *own* real workflow calls do need the
+   correct key in that env var) but it didn't address the verification
+   failure by itself.
+3. The actual cause: `$N8N_KEY` in Rick's shell was 23 characters, not the
+   expected 64-hex-char key from `create-agent-key.ts` — never correctly
+   captured in the first place (manual copy-paste from terminal log output
+   is error-prone). Fixed by switching to an automated capture: execute the
+   job, then `gcloud logging read ... | grep -E '^[0-9a-f]{64}$'` to pull the
+   exact key line straight into the shell variable, no manual transcription
+   step at all.
+4. A stale `gcloud`/terraform application-default credential (`invalid_grant
+   "reauth related error (invalid_rapt)"`) broke the `terraform output
+   -raw app_url` call mid-verification — same class of issue hit earlier in
+   this deployment (see Task 1). Fixed with `gcloud auth login --update-adc`.
+
+**Final verification, Task 6 definition-of-done — all real, all passing:**
+```
+login: 200
+cockpit stream: 307
+agent decisions: 200
+```
+n8n's live Cloud Run env now carries the correct, verified 64-char key
+(re-added as a new `agent-api-key` secret version, new revision deployed).
+Task 6 complete.
+
+<!-- Next entry: Task 7 teardown result. -->
