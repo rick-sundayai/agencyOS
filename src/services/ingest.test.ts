@@ -87,6 +87,27 @@ describe('ingestCandidate', () => {
     const [{ n }] = await sql`select count(*)::int as n from candidates where lower(email) = lower(${raceEmail})`;
     expect(n).toBe(1);
   });
+
+  it('returns structure-aware chunks derived from the redacted+formatted text', async () => {
+    const r = await ingestCandidate({
+      org_id: orgId, full_name: 'Chunk Target',
+      email: `chunk-${Date.now()}@example.com`,
+      resume_text: 'Reach Chunk Target at chunk@example.com.\n\nPROFESSIONAL EXPERIENCE\nBuilt things.',
+    });
+    expect(Array.isArray(r.chunks)).toBe(true);
+    expect(r.chunks.length).toBeGreaterThan(0);
+    // redaction still applied before chunking
+    expect(r.chunks.join(' ')).toContain('[EMAIL]');
+    expect(r.chunks.join(' ')).not.toContain('chunk@example.com');
+  });
+
+  it('returns an empty chunks array when there is no resume_text', async () => {
+    const r = await ingestCandidate({
+      org_id: orgId, full_name: 'No Resume Chunks',
+      email: `no-chunks-${Date.now()}@example.com`,
+    });
+    expect(r.chunks).toEqual([]);
+  });
 });
 
 describe('upsertEmbeddings', () => {

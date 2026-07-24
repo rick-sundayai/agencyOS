@@ -23,7 +23,7 @@ await completeDecision(d.decision.id, {
 });
 
 if (resume_text && ing.document_id) {
-  const chunks = chunkText(ing.embedding_text);
+  const chunks = ing.chunks;
   const rows = [];
   for (let i = 0; i < chunks.length; i++) {
     rows.push({
