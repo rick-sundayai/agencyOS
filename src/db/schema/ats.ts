@@ -39,6 +39,7 @@ export const candidate_documents = pgTable('candidate_documents', {
   kind: text('kind').notNull().default('resume'),
   storage_key: text('storage_key').notNull(),
   parsed_text: text('parsed_text'),
+  embedding_status: text('embedding_status').notNull().default('pending'),
   version: integer('version').notNull().default(1),
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });

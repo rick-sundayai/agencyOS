@@ -1,0 +1,1 @@
+ALTER TABLE "candidate_documents" ADD COLUMN "embedding_status" text DEFAULT 'pending' NOT NULL;

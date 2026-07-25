@@ -108,6 +108,16 @@ describe('ingestCandidate', () => {
     });
     expect(r.chunks).toEqual([]);
   });
+
+  it('defaults a new resume document to embedding_status = pending', async () => {
+    const r = await ingestCandidate({
+      org_id: orgId, full_name: 'Status Default',
+      email: `status-${Date.now()}@example.com`, resume_text: 'some resume text',
+    });
+    const [doc] = await sql`
+      select embedding_status from candidate_documents where id = ${r.document_id}`;
+    expect(doc.embedding_status).toBe('pending');
+  });
 });
 
 describe('upsertEmbeddings', () => {
