@@ -32,10 +32,13 @@ function coerceJson(raw: string): unknown {
 }
 
 export async function extractCandidateFields(
-  text: string, complete: CompleteFn = defaultCompleter(),
+  text: string, complete?: CompleteFn,
 ): Promise<PrefilledFields> {
   let raw: string;
-  try { raw = await complete(PROMPT(text)); } catch { return { ...ALL_NULL }; }
+  try {
+    const run = complete ?? defaultCompleter();
+    raw = await run(PROMPT(text));
+  } catch { return { ...ALL_NULL }; }
   const parsed = PrefilledFieldsSchema.safeParse(coerceJson(raw));
   return parsed.success ? parsed.data : { ...ALL_NULL };
 }

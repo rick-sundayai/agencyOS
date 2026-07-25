@@ -29,4 +29,17 @@ describe('extractCandidateFields', () => {
       full_name: null, email: null, phone: null, current_title: null, location: null,
     });
   });
+
+  it('returns all-null (never throws) when no completer is injected and GEMINI_API_KEY is unset', async () => {
+    const prev = process.env.GEMINI_API_KEY;
+    delete process.env.GEMINI_API_KEY;
+    try {
+      const f = await extractCandidateFields('resume text');
+      expect(f).toEqual({
+        full_name: null, email: null, phone: null, current_title: null, location: null,
+      });
+    } finally {
+      if (prev !== undefined) process.env.GEMINI_API_KEY = prev;
+    }
+  });
 });
