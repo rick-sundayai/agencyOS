@@ -28,4 +28,11 @@ describe('handleConfirm', () => {
         current_title: null, location: null } }, 'org-1', okRun);
     expect(res.status).toBe(400);
   });
+
+  it('returns 400 when email is a non-empty malformed address', async () => {
+    const res = await handleConfirm(
+      { draft_id: 'draft-x', fields: { full_name: 'Ada', email: 'notanemail', phone: null,
+        current_title: null, location: null } }, 'org-1', okRun);
+    expect(res.status).toBe(400);
+  });
 });

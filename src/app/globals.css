@@ -499,6 +499,8 @@ main > p { color: var(--ink-500); font-size: 13.5px; margin-bottom: 4px; }
 .add-candidate-review label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--ink-500); }
 .add-candidate-review input { padding: 10px 12px; border: 1px solid var(--ink-200); border-radius: var(--r-sm); background: var(--paper); color: var(--ink-800); font-size: 14px; font-family: inherit; transition: border-color .12s, box-shadow .12s; }
 .add-candidate-review input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.add-candidate-notice { color: var(--warn); font-size: 13px; font-weight: 600; margin-top: 8px; }
+.add-candidate-preview { width: 100%; white-space: pre-wrap; font-family: inherit; font-size: 12px; color: var(--ink-400); background: var(--paper); border: 1px solid var(--ink-150); border-radius: var(--r-sm); padding: 8px 10px; margin: 4px 0 0; }
 
 /* Sourcing shortlist — one card per candidate, name/title/distance/fit in a row. */
 .shortlist { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
