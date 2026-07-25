@@ -24,8 +24,11 @@ if (process.argv[1]?.endsWith('bootstrap-staging-operator.ts')) {
       values (${orgId}, 'rick@sundayaiwork.com', 'Rick', 'admin', ${hash})
       on conflict (email) do update set password_hash = excluded.password_hash`;
 
-    console.log('Operator password (copy now — it is not stored or shown again):');
-    console.log(plaintext);
+    // Marker lets a Cloud Logging exclusion (infra/modules/stamp/main.tf) drop these
+    // two lines from durable storage — this job runs via `gcloud run jobs execute`,
+    // whose stdout is otherwise captured into Cloud Logging by default.
+    console.log('ONE_TIME_SECRET:: Operator password (copy now — it is not stored or shown again):');
+    console.log(`ONE_TIME_SECRET:: ${plaintext}`);
     await sql.end();
     process.exit(0);
   })().catch((e) => { console.error(e); process.exit(1); });

@@ -59,6 +59,7 @@ resource "google_project_service" "apis" {
     "compute.googleapis.com",
     "aiplatform.googleapis.com",
     "monitoring.googleapis.com",
+    "logging.googleapis.com",
   ])
   project = google_project.stamp.project_id
   service = each.value
@@ -223,8 +224,9 @@ resource "google_secret_manager_secret_iam_member" "app_reads" {
 }
 
 resource "google_secret_manager_secret_iam_member" "n8n_reads" {
-  for_each = toset(["n8n-db-password", "n8n-encryption-key", "agent-api-key",
-  "jobdiva-client-id", "jobdiva-username", "jobdiva-password"])
+  # jobdiva-* deliberately excluded: no n8n workflow calls JobDiva yet. Re-add
+  # here (and to the env block below) only when one does.
+  for_each  = toset(["n8n-db-password", "n8n-encryption-key", "agent-api-key"])
   project   = google_project.stamp.project_id
   secret_id = google_secret_manager_secret.s[each.key].secret_id
   role      = "roles/secretmanager.secretAccessor"
@@ -384,13 +386,11 @@ resource "google_cloud_run_v2_service" "n8n" {
         value = google_cloud_run_v2_service.app.uri
       }
       dynamic "env" {
+        # jobdiva-* deliberately excluded: no n8n workflow calls JobDiva yet.
         for_each = { for k, v in {
           DB_POSTGRESDB_PASSWORD = "n8n-db-password",
           N8N_ENCRYPTION_KEY     = "n8n-encryption-key",
           AGENCYOS_AGENT_API_KEY = "agent-api-key",
-          JOBDIVA_CLIENT_ID      = "jobdiva-client-id",
-          JOBDIVA_USERNAME       = "jobdiva-username",
-          JOBDIVA_PASSWORD       = "jobdiva-password"
         } : k => v if local.secret_has_value[v] }
         content {
           name = env.key
@@ -453,6 +453,20 @@ resource "google_cloud_run_v2_job" "migrate" {
   lifecycle {
     ignore_changes = [template[0].template[0].containers[0].image]
   }
+}
+
+# The migrate job doubles as the ops-script runner (bootstrap-staging-operator,
+# create-agent-key) since Cloud SQL has no public IP. Those scripts print a
+# one-time operator password / agent API key to stdout, which `gcloud run jobs
+# execute` otherwise captures into Cloud Logging by default — silently defeating
+# their "not stored or shown again" intent. Drop only the marked lines; ordinary
+# migration logs (which never contain the marker) still land in Cloud Logging.
+resource "google_logging_project_exclusion" "migrate_job_onetime_secrets" {
+  project     = google_project.stamp.project_id
+  name        = "migrate-job-onetime-secrets"
+  description = "Drops ONE_TIME_SECRET::-marked stdout lines (operator password, agent API keys) from the migrate Cloud Run Job."
+  filter      = "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"migrate\" AND textPayload:\"ONE_TIME_SECRET::\""
+  depends_on  = [google_project_service.apis]
 }
 
 # ---------- domain + monitoring ----------
