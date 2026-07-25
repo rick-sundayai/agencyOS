@@ -3,6 +3,7 @@ import { auth } from '../../lib/auth';
 import { listCandidates, listJobOrders } from '../../services/ats-views';
 import { fitMeta } from '../../components/fit';
 import { JobOrderFilter } from '../../components/JobOrderFilter';
+import AddCandidate from './AddCandidate';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,6 +32,7 @@ export default async function CandidatesPage({
           jobOrders={jobOrders.map((j) => ({ id: j.id, title: j.title }))}
           selected={job ?? null}
         />
+        <AddCandidate />
       </div>
 
       {rows.length === 0 ? (
