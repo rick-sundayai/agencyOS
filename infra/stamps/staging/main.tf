@@ -1,12 +1,16 @@
 terraform {
   required_version = ">= 1.7"
   backend "gcs" {
-    bucket = "agencyos-ops-f2f92e-tfstate" # ops output (infra/ops/terraform.tfvars ops_project_id changed after a collision — see .superpowers/sdd/progress.md)
+    bucket = "agencyos-ops-07262025-tfstate" # ops output (infra/ops/terraform.tfvars ops_project_id changed after a collision — see .superpowers/sdd/progress.md)
     prefix = "stamps/staging"
   }
 }
 
 variable "org_id" {
+  type = string
+}
+
+variable "project_id" {
   type = string
 }
 
@@ -51,7 +55,7 @@ provider "google" {
 module "stamp" {
   source                  = "../../modules/stamp"
   stamp_name              = "staging"
-  project_id              = "agencyos-staging"
+  project_id              = var.project_id
   org_id                  = var.org_id
   billing_account         = var.billing_account
   deployer_sa             = var.deployer_sa

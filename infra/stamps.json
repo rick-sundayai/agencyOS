@@ -1,5 +1,5 @@
 {
   "stamps": [
-    { "name": "staging", "project": "agencyos-staging", "region": "us-central1" }
+    { "name": "staging", "project": "agencyos-staging-07262025", "region": "us-central1" }
   ]
 }
