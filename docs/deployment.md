@@ -49,8 +49,12 @@ wired in and doubles as the ops-script runner (see the Dockerfile's
 gcloud run jobs execute migrate --project agencyos-<client> --region us-central1 \
   --args="npx,tsx,scripts/ops/bootstrap-staging-operator.ts" --wait
 gcloud secrets versions access latest --secret=onetime-operator-password --project=agencyos-<client>
-gcloud secrets versions destroy latest --secret=onetime-operator-password --project=agencyos-<client> --quiet
+VERSION=$(gcloud secrets versions list onetime-operator-password --project=agencyos-<client> \
+  --filter="state=ENABLED" --sort-by=~createTime --limit=1 --format='value(name)')
+gcloud secrets versions destroy "$VERSION" --secret=onetime-operator-password --project=agencyos-<client> --quiet
 ```
+(`versions destroy` doesn't accept the `latest` alias that `versions access` does —
+resolve the actual version number first.)
 The password is delivered via a short-lived Secret Manager secret, not
 `stdout` — Cloud Run Jobs' stdout is captured into Cloud Logging by default,
 which would otherwise leak it into durable log storage. Save it to a
@@ -70,9 +74,13 @@ concurrent creation of several):
 gcloud run jobs execute migrate --project agencyos-<client> --region us-central1 \
   --args="npx,tsx,scripts/agents/create-agent-key.ts,--name,n8n,--org,<Client Org Name>" --wait
 N8N_KEY=$(gcloud secrets versions access latest --secret=onetime-agent-key --project=agencyos-<client>)
-gcloud secrets versions destroy latest --secret=onetime-agent-key --project=agencyos-<client> --quiet
+VERSION=$(gcloud secrets versions list onetime-agent-key --project=agencyos-<client> \
+  --filter="state=ENABLED" --sort-by=~createTime --limit=1 --format='value(name)')
+gcloud secrets versions destroy "$VERSION" --secret=onetime-agent-key --project=agencyos-<client> --quiet
 echo "N8N_KEY length: ${#N8N_KEY}"   # must print 64 before continuing
 ```
+(`versions destroy` doesn't accept the `latest` alias that `versions access` does —
+resolve the actual version number first.)
 `AGENCYOS_AGENT_API_KEY` on the n8n service is wired to a Secret Manager
 `secret_key_ref`, not a plain env var — `gcloud run services update
 --update-env-vars` fails with a type-conflict error. Update the secret's
