@@ -5,22 +5,17 @@
 // dropping matching entries at the log router — which also makes them
 // unrecoverable via `gcloud logging read`. Secret Manager access is
 // IAM-gated and the version can be destroyed once retrieved.
+//
+// The secret container itself must already exist (Terraform pre-creates
+// `onetime-operator-password` / `onetime-agent-key`) — the app SA is granted
+// only secretVersionManager on those two specific secrets, not project-wide
+// secrets.create, so this must never attempt to create the secret itself.
 export async function deliverOneTimeSecret(secretId: string, plaintext: string): Promise<void> {
   const { SecretManagerServiceClient } = await import('@google-cloud/secret-manager');
   const client = new SecretManagerServiceClient();
   const projectId = await client.getProjectId();
   const parent = `projects/${projectId}`;
   const secretName = `${parent}/secrets/${secretId}`;
-
-  try {
-    await client.createSecret({
-      parent,
-      secretId,
-      secret: { replication: { automatic: {} } },
-    });
-  } catch (e) {
-    if ((e as { code?: number }).code !== 6 /* ALREADY_EXISTS */) throw e;
-  }
 
   const [version] = await client.addSecretVersion({
     parent: secretName,
