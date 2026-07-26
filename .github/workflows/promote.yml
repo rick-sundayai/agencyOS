@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v4
       - id: select
         run: |
-          MATRIX=$(node -e '
+          node -e '
             const { stamps } = require("./infra/stamps.json");
             const want = "${{ inputs.stamps }}";
             const picked = want === "all"
