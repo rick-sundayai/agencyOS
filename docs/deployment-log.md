@@ -251,4 +251,112 @@ for the day.
   distinct piece of work, whenever picked back up. Task 7 (teardown) still
   not started — mandatory STOP gate, needs Rick's fresh explicit go-ahead.
 
+## 2026-07-26 — full fleet rebuild + first-ever `promote.yml` run (ticket #25)
+
+Ticket #25 asked to prove a client stamp end to end, which required actually
+exercising `promote.yml` for the first time since it was written — zero
+prior runs (`gh run list --workflow=release.yml` showed none). Rick chose
+**Option A**: destroy and rebuild both the `staging` stamp and the `ops`
+project from scratch, rather than reuse existing infra, specifically so the
+rebuild path itself would get proven too.
+
+**GCP project IDs are permanently non-reusable.** `agencyos-staging` came
+back `DELETE_REQUESTED` after destroy (soft-delete grace period) — it can
+never be recreated under that name. Same for the old ops project. Rebuilt as
+`agencyos-ops-07262025` and `agencyos-staging-07262025`. Any future full
+rebuild needs a fresh, never-before-used project ID, and every place that
+hardcodes the old one has to be hunted down (see below — there were four).
+
+**Root cause over rebuild-and-repeat.** Mid-rebuild, Rick's instinct was to
+nuke and restart clean again after hitting a Terraform error; redirected
+instead to root-causing the module bug so it wouldn't recur on every future
+stamp rebuild. This paid off repeatedly for the rest of the session — every
+bug below was fixed at its source rather than worked around.
+
+**Real bugs found and fixed, in the order hit:**
+
+1. **`for_each` on a map keyed by unknown (`random_password.*.result`)
+   values can't evaluate on a brand-new, empty-state apply.** Latent bug in
+   `infra/modules/stamp/main.tf`, invisible on every prior apply because
+   state already existed. Fixed by keeping a plain-string-keyed
+   `secret_has_value` local (already existed for the JobDiva-optional case)
+   and indexing the original sensitive map directly in the resource body,
+   rather than re-deriving a map via a for-expression over sensitive values
+   — the latter taints the whole `for_each` argument even when only key
+   presence matters, a genuine Terraform sensitivity-propagation gotcha.
+2. **Hardcoded `project_id = "agencyos-staging"` literal inside
+   `infra/stamps/staging/main.tf`'s `module "stamp"` block**, silently
+   ignoring `terraform.tfvars`'s `project_id`. Added a proper
+   `variable "project_id"` and wired it through — this is exactly why the
+   first apply attempt after the rebuild tried to touch the deleted project.
+3. **`infra/stamps.json` still listed `"agencyos-staging"`** — `promote.yml`
+   resolves its stamp matrix from this file, so it would have targeted a
+   nonexistent project. Updated to `agencyos-staging-07262025`.
+4. **`promote.yml`'s `plan` job had a dangling, unclosed `MATRIX=$(`
+   command substitution** — a real bug that had simply never executed
+   before, since this workflow had zero prior runs. Bash failed with
+   `unexpected EOF while looking for matching \`)'`. The script already
+   wrote its output via `console.log("matrix=" + ...)`; fixed by dropping
+   the vestigial capture entirely. Verified via a fully green `promote.yml`
+   run — first one ever.
+5. **`.github/workflows/deploy-staging.yml` also hardcoded
+   `STAGING_PROJECT: agencyos-staging`** — same class of bug as #2/#3, in a
+   fourth location, caught only because `deploy-staging` hadn't run since
+   the rebuild started. `gcloud run jobs update` failed with
+   `PERMISSION_DENIED ... CONSUMER_INVALID` against the deleted project.
+6. **Cloud Logging project-level exclusions drop matching entries at the
+   log router, before they reach any bucket — including `_Default`.** The
+   `ONE_TIME_SECRET::`-marker + `google_logging_project_exclusion` pattern
+   added in `58a2b61` (meant to keep the bootstrap operator password and
+   n8n agent key out of durable logs) structurally could never deliver
+   those values to the operator either — `gcloud logging read` can't
+   recover excluded entries, full stop. This had never been caught because
+   this code path had never actually run since that commit. Replaced with
+   **Secret Manager delivery**: two Terraform-precreated secret containers
+   (`onetime-operator-password`, `onetime-agent-key`), a narrowly-scoped
+   `roles/secretmanager.secretVersionManager` grant to the app SA (add/
+   access/destroy on those two secrets only, not project-wide
+   `secrets.create`), and a new `scripts/ops/deliver-onetime-secret.ts`
+   helper. New dependency: `@google-cloud/secret-manager`.
+7. **That fix's first live run still failed**: `deliverOneTimeSecret`
+   unconditionally called `client.createSecret(...)` before adding a
+   version, catching only `ALREADY_EXISTS` — but the whole point of the
+   least-privilege design was that the app SA does *not* have project-wide
+   `secretmanager.secrets.create`, only `secretVersionManager` on the two
+   pre-created secrets. `PERMISSION_DENIED` on `secretmanager.secrets.create`
+   the first time this ran live. Fixed by deleting the `createSecret` call
+   entirely — the containers are already guaranteed to exist via Terraform.
+8. **`gcloud secrets versions destroy` rejects the `latest` alias** that
+   `versions access` accepts — `INVALID_ARGUMENT: ... does not support the
+   use of latest`. Both `docs/deployment.md`'s operator-password and
+   agent-key retrieval instructions used `destroy latest` and both failed
+   live the first time they were run. Fixed by resolving the actual version
+   number first (`versions list --filter="state=ENABLED" --sort-by=~createTime
+   --limit=1`) before destroying. The two orphaned enabled versions from the
+   failed attempts were manually destroyed afterward.
+9. **Docker builds on Apple Silicon default to arm64**; Cloud Run rejects
+   non-amd64 manifests outright. All image builds for this stamp now pass
+   `--platform linux/amd64` explicitly (already documented from Task 5, just
+   re-confirmed on the rebuilt project).
+10. **n8n's public image (`docker.n8n.io/n8nio/n8n:1.99.1`) had to be
+    re-mirrored** into the new ops project's Artifact Registry — Cloud Run
+    can't pull it directly, and this is per-project, not a one-time step.
+
+**Final end-to-end verification, all real, all passing:**
+```
+terraform apply (rebuilt staging stamp)  → Apply complete
+release.yml → promote.yml                → success (first run ever)
+deploy-staging (after fix #5)             → success
+bootstrap-staging-operator.ts             → operator password delivered via Secret Manager
+create-agent-key.ts --name n8n            → 64-char key delivered via Secret Manager
+n8n agent-api-key secret + new revision   → deployed
+curl -H "x-agent-api-key: $N8N_KEY" .../api/agent/decisions → 200
+```
+
+Live stamp: `agencyos-staging-07262025`, ops project `agencyos-ops-07262025`.
+Ticket #25 closed. Ten real, previously-latent bugs found and fixed at the
+source — none worked around — directly because this was the first time any
+of these paths (fresh-state apply, `promote.yml`, the log-exclusion secret
+delivery, `versions destroy`) had actually been exercised end to end.
+
 <!-- Next entry: n8n workflow bring-up, or Task 7 teardown result. -->
