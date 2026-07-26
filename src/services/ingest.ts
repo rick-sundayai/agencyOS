@@ -92,7 +92,7 @@ export async function ingestCandidate(input: unknown): Promise<{
     }
 
     const embedding_text = p.resume_text
-      ? formatForEmbedding(redactForEmbedding(p.resume_text))
+      ? formatForEmbedding(redactForEmbedding(p.resume_text)!)
       : null;
     const chunks = embedding_text ? chunkForEmbedding(embedding_text) : [];
     return { candidate_id: candidateId, document_id: documentId, deduped, embedding_text, chunks };
