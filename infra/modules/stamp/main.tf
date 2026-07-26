@@ -256,6 +256,42 @@ resource "google_secret_manager_secret_iam_member" "n8n_reads" {
   member    = "serviceAccount:${google_service_account.n8n.email}"
 }
 
+# The migrate job (running as the app SA) doubles as the ops-script runner
+# (bootstrap-staging-operator, create-agent-key) since Cloud SQL has no
+# public IP. Those scripts deliver a one-time operator password / agent key
+# through these secrets rather than stdout, which `gcloud run jobs execute`
+# otherwise captures into Cloud Logging by default. Pre-created here (empty,
+# no version) so the app SA only needs version-add/destroy, not project-wide
+# secret creation.
+resource "google_secret_manager_secret" "onetime_operator_password" {
+  project   = google_project.stamp.project_id
+  secret_id = "onetime-operator-password"
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret" "onetime_agent_key" {
+  project   = google_project.stamp.project_id
+  secret_id = "onetime-agent-key"
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret_iam_member" "app_writes_onetime" {
+  for_each = toset([
+    google_secret_manager_secret.onetime_operator_password.secret_id,
+    google_secret_manager_secret.onetime_agent_key.secret_id,
+  ])
+  project   = google_project.stamp.project_id
+  secret_id = each.value
+  role      = "roles/secretmanager.secretVersionManager"
+  member    = "serviceAccount:${google_service_account.app.email}"
+}
+
 resource "google_project_iam_member" "app_vertex" {
   project = google_project.stamp.project_id
   role    = "roles/aiplatform.user"
@@ -476,20 +512,6 @@ resource "google_cloud_run_v2_job" "migrate" {
   lifecycle {
     ignore_changes = [template[0].template[0].containers[0].image]
   }
-}
-
-# The migrate job doubles as the ops-script runner (bootstrap-staging-operator,
-# create-agent-key) since Cloud SQL has no public IP. Those scripts print a
-# one-time operator password / agent API key to stdout, which `gcloud run jobs
-# execute` otherwise captures into Cloud Logging by default — silently defeating
-# their "not stored or shown again" intent. Drop only the marked lines; ordinary
-# migration logs (which never contain the marker) still land in Cloud Logging.
-resource "google_logging_project_exclusion" "migrate_job_onetime_secrets" {
-  project     = google_project.stamp.project_id
-  name        = "migrate-job-onetime-secrets"
-  description = "Drops ONE_TIME_SECRET::-marked stdout lines (operator password, agent API keys) from the migrate Cloud Run Job."
-  filter      = "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"migrate\" AND textPayload:\"ONE_TIME_SECRET::\""
-  depends_on  = [google_project_service.apis]
 }
 
 # ---------- domain + monitoring ----------

@@ -48,29 +48,29 @@ wired in and doubles as the ops-script runner (see the Dockerfile's
 ```bash
 gcloud run jobs execute migrate --project agencyos-<client> --region us-central1 \
   --args="npx,tsx,scripts/ops/bootstrap-staging-operator.ts" --wait
-gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="migrate" AND resource.labels.location="us-central1"' \
-  --project=agencyos-<client> --format="value(textPayload)" --order=asc --limit=10 --freshness=5m
+gcloud secrets versions access latest --secret=onetime-operator-password --project=agencyos-<client>
+gcloud secrets versions destroy latest --secret=onetime-operator-password --project=agencyos-<client> --quiet
 ```
-The password prints in that log output — save it to a password manager now,
-it's never shown again. `scripts/ops/bootstrap-staging-operator.ts` is a
-working reference implementation of this pattern, but it's hardcoded to the
-internal ops admin account (org "Sunday AI Work", `rick@sundayaiwork.com`)
-— copy and adapt the org/email/role rather than running it as-is against a
-client stamp.
+The password is delivered via a short-lived Secret Manager secret, not
+`stdout` — Cloud Run Jobs' stdout is captured into Cloud Logging by default,
+which would otherwise leak it into durable log storage. Save it to a
+password manager immediately, then destroy the version as shown above.
+`scripts/ops/bootstrap-staging-operator.ts` is a working reference
+implementation of this pattern, but it's hardcoded to the internal ops admin
+account (org "Sunday AI Work", `rick@sundayaiwork.com`) — copy and adapt the
+org/email/role rather than running it as-is against a client stamp.
 
 ## n8n agent key
 Each stamp needs its own real per-client key; the module ships no default.
-Run via the same `migrate` job, and auto-capture the key straight from logs
-— manual copy-paste of a 64-char hex key is genuinely error-prone (this bit
-staging's own bring-up: a truncated key silently produced 401s until the
-mismatch was traced to the shell variable, not the infra):
+Run via the same `migrate` job — the key is delivered the same way, via a
+single shared `onetime-agent-key` Secret Manager secret (retrieve and
+destroy the version immediately; it's meant for one agent at a time, not
+concurrent creation of several):
 ```bash
 gcloud run jobs execute migrate --project agencyos-<client> --region us-central1 \
   --args="npx,tsx,scripts/agents/create-agent-key.ts,--name,n8n,--org,<Client Org Name>" --wait
-sleep 15
-N8N_KEY=$(gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="migrate" AND resource.labels.location="us-central1"' \
-  --project=agencyos-<client> --format="value(textPayload)" --order=desc --limit=20 --freshness=2m \
-  | grep -E '^[0-9a-f]{64}$' | head -1)
+N8N_KEY=$(gcloud secrets versions access latest --secret=onetime-agent-key --project=agencyos-<client>)
+gcloud secrets versions destroy latest --secret=onetime-agent-key --project=agencyos-<client> --quiet
 echo "N8N_KEY length: ${#N8N_KEY}"   # must print 64 before continuing
 ```
 `AGENCYOS_AGENT_API_KEY` on the n8n service is wired to a Secret Manager

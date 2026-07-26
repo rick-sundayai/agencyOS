@@ -35,11 +35,8 @@ if (process.argv[1]?.endsWith('create-agent-key.ts')) {
       values (${org.id}, ${name}, ${hash})
       on conflict (org_id, name) do update set api_key_hash = excluded.api_key_hash`;
 
-    // Marker lets a Cloud Logging exclusion (infra/modules/stamp/main.tf) drop these
-    // two lines from durable storage — this job runs via `gcloud run jobs execute`,
-    // whose stdout is otherwise captured into Cloud Logging by default.
-    console.log(`ONE_TIME_SECRET:: Agent "${name}" key (copy now — it is not stored or shown again):`);
-    console.log(`ONE_TIME_SECRET:: ${plaintext}`);
+    const { deliverOneTimeSecret } = await import('../ops/deliver-onetime-secret');
+    await deliverOneTimeSecret('onetime-agent-key', plaintext);
     await sql.end();
     process.exit(0);
   })().catch((e) => { console.error(e); process.exit(1); });
