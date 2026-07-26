@@ -182,7 +182,25 @@ locals {
     "jobdiva-username"   = var.jobdiva_username
     "jobdiva-password"   = var.jobdiva_password
   }
-  secret_has_value = { for k, v in local.secrets : k => nonsensitive(v != "") }
+  # Not derived from local.secrets: the 5 random_password-backed values are
+  # unknown until apply, which would make this map's truthiness undecidable
+  # at plan time (and break every for_each keyed on it below). Those 5 are
+  # always non-empty by construction; only the jobdiva-* keys are genuinely
+  # optional, and are plan-time-known straight from the input variables.
+  secret_has_value = {
+    "database-url"       = true
+    "auth-secret"        = true
+    "agent-api-key"      = true
+    "n8n-db-password"    = true
+    "n8n-encryption-key" = true
+    # nonsensitive(): knowing whether the string is empty doesn't leak its
+    # content, but without stripping the mark, sensitivity from the jobdiva_*
+    # vars would propagate onto this map and, from there, onto every for_each
+    # keyed on it below.
+    "jobdiva-client-id" = nonsensitive(var.jobdiva_client_id != "")
+    "jobdiva-username"  = nonsensitive(var.jobdiva_username != "")
+    "jobdiva-password"  = nonsensitive(var.jobdiva_password != "")
+  }
 }
 
 resource "google_secret_manager_secret" "s" {
@@ -196,9 +214,14 @@ resource "google_secret_manager_secret" "s" {
 }
 
 resource "google_secret_manager_secret_version" "s" {
-  for_each    = { for k, v in local.secrets : k => v if local.secret_has_value[k] }
+  # for_each must resolve to a set of plain key strings, not a copy of
+  # local.secrets: re-deriving a map via a for-expression over sensitive
+  # values loses Terraform's per-key sensitivity handling and taints the
+  # whole for_each argument. secret_data indexes the original map directly
+  # instead, which keeps that handling intact.
+  for_each    = toset([for k, v in local.secret_has_value : k if v])
   secret      = google_secret_manager_secret.s[each.key].id
-  secret_data = each.value
+  secret_data = local.secrets[each.key]
 }
 
 # ---------- service accounts ----------
