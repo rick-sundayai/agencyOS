@@ -4,7 +4,7 @@ terraform {
     google = { source = "hashicorp/google", version = "~> 6.0" }
   }
   backend "gcs" {
-    bucket = "agencyos-ops-f2f92e-tfstate"
+    bucket = "agencyos-ops-07262025-tfstate"
     prefix = "ops"
   }
 }
