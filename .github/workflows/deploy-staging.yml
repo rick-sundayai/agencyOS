@@ -14,7 +14,7 @@ concurrency: deploy-staging
 env:
   AR: ${{ vars.GCP_AR }}
   REGION: ${{ vars.GCP_REGION }}
-  STAGING_PROJECT: agencyos-staging
+  STAGING_PROJECT: agencyos-staging-07262025
 
 jobs:
   build-deploy:
