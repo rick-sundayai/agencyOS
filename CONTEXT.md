@@ -107,3 +107,17 @@ A candidate's permission status for a given outreach channel (granted / revoked 
 **Invariants:**
 - Consent is tracked per candidate per channel.
 - Absence of a granted Consent is treated as "not permitted," not "permitted."
+
+### Stamp
+
+A client's dedicated, isolated deployment of AgencyOS — its own GCP project, Cloud Run services, Cloud SQL instance, and n8n instance. The Stamp is AgencyOS's actual isolation boundary between clients: no data or credentials are shared across Stamps.
+
+**Invariants:**
+- A Stamp holds exactly one Org for the lifetime of the deployment.
+- Onboarding a new client means standing up a new Stamp, not adding a second Org to an existing one.
+
+### Org
+
+The tenant record every User and Agent belongs to. Because a Stamp holds exactly one Org, Org is not what isolates one client's data from another's — the Stamp is. Org exists to make each User's and Agent's tenancy an explicit, honest fact in the data model, and every query still filters by it as a matter of consistency and cheap insurance, not because it is preventing a live cross-tenant leak today.
+
+**Distinguishes from:** Stamp — the Stamp is the deployment-level isolation boundary; Org is a data-model convention living inside it.
