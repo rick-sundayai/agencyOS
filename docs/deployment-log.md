@@ -359,4 +359,59 @@ source — none worked around — directly because this was the first time any
 of these paths (fresh-state apply, `promote.yml`, the log-exclusion secret
 delivery, `versions destroy`) had actually been exercised end to end.
 
-<!-- Next entry: n8n workflow bring-up, or Task 7 teardown result. -->
+## 2026-08-03 — staging stamp torn down (Task 7)
+
+Rick decided to tear the rebuilt staging stamp down entirely rather than
+continue testing. This session initially assumed the *pre-rebuild* project
+(`agencyos-staging`/`agencyos-ops-f2f92e`, from the 2026-07-22–24 work) was
+still live — only discovered mid-diagnosis that ticket #25's full fleet
+rebuild (see the entry above) had replaced it with
+`agencyos-staging-07262025`/`agencyos-ops-07262025`, evidenced by a
+`terraform destroy` error referencing the new project ID and confirmed by
+reading the current `infra/stamps/staging/main.tf` (now takes `project_id`
+as a variable, not the old hardcoded literal). Lesson: after any real gap in
+session continuity, verify current git history and config before trusting
+prior-session assumptions about live project IDs — this cost a few wasted
+diagnostic steps before the mismatch was caught.
+
+**`terraform destroy -auto-approve` got most of the way and stalled on
+three errors**, all live-infra ordering/timing issues, not config bugs —
+confirmed by checking actual GCP state before acting rather than guessing:
+- `google_sql_user "n8n"` — `role "n8n" cannot be dropped because some
+  objects depend on it. 55 objects in database n8n.`
+- `google_sql_database "n8n"` — `database "n8n" is being accessed by other
+  users.`
+- The VPC subnetwork — `already being used by` two Google-managed
+  `serverless-ipv4-*` address reservations (Cloud Run's direct-VPC-egress
+  feature auto-creates these; they're not in Terraform's own config).
+
+Verified `gcloud run services/jobs list` was already empty for the project
+— the Cloud Run resources genuinely were destroyed first, correctly; the
+SQL and subnetwork failures were just lingering connections/reservations
+Google's backend hadn't released yet (the same eventual-consistency pattern
+seen repeatedly during the original bring-up). A background monitor
+confirmed the two address reservations did eventually clear on their own
+(~roughly 15+ minutes) — but Rick didn't want to wait, correctly pointing
+out this was a disposable test project.
+
+**Skipped the graceful path and deleted the whole project directly**
+(`gcloud projects delete agencyos-staging-07262025 --quiet`) — this doesn't
+care about individual resource "in use" errors the way resource-by-resource
+`terraform destroy` does. Verified gone (`gcloud projects list --filter`
+returned no rows).
+
+**State cleanup deviated from the plan's Step 5.** The plan assumed a fully
+graceful `terraform destroy` leaves only `google_project.stamp` behind (its
+`deletion_policy = "PREVENT"` blocks Terraform from deleting the project
+resource itself, by design). Because this cycle short-circuited straight to
+direct project deletion instead, 16 resources were left orphaned in state
+(SQL instance, VPC, subnetwork, PSA connection, enabled APIs, `n8n` DB user,
+etc.), not just the one. Removed the whole module in one shot —
+`terraform state rm module.stamp` — rather than one-by-one; `terraform
+state list` confirmed empty afterward.
+
+Staging is fully torn down. `ops` (`agencyos-ops-07262025`) and the
+bootstrap images are untouched — a future cycle re-runs from Task 5's
+Step 3 onward against this now-empty state, no rebuild of `ops` needed.
+
+<!-- Next entry: next test cycle's staging re-apply, or a full fleet rebuild. -->
